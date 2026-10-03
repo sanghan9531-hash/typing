@@ -1,0 +1,2193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4B2FB0">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>원고지 타자 연습</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;600&family=Jua&display=swap" rel="stylesheet">
+
+<!-- ======================= CSS: 화면 꾸미기 ======================= -->
+<style>
+  /* 색깔 모음 (여기 숫자만 바꾸면 전체 색이 바뀌어요) */
+  :root {
+    --paper: #EEF3EC;    /* 배경 (원고지 종이) */
+    --line: #7FAE88;     /* 원고지 칸 선 */
+    --grid: #DCE8DE;     /* 게임 화면 모눈 */
+    --ink: #1F2A24;      /* 맞게 친 글자 */
+    --faint: #A3B7A8;    /* 아직 안 친 글자 (흐리게) */
+    --wrong: #C8332F;    /* 틀린 글자 */
+    --wrong-bg: #F6DCD8; /* 틀린 칸 배경 */
+    --mark: #F5D76E;     /* 지금 칠 칸 (형광펜) */
+    --panel: #FFFFFF;    /* 입력창·카드 배경 */
+    --ghost: #8A7FC2;    /* 고스트(과거의 나) 색 */
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141C17; --line: #3F6E4B; --grid: #22322A; --ink: #E4EDE6; --faint: #4E6356;
+      --wrong: #FF6B63; --wrong-bg: #3A1E1C; --mark: #6B5A1E; --panel: #1C261F; --ghost: #A99DE8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141C17; --line: #3F6E4B; --grid: #22322A; --ink: #E4EDE6; --faint: #4E6356;
+    --wrong: #FF6B63; --wrong-bg: #3A1E1C; --mark: #6B5A1E; --panel: #1C261F; --ghost: #A99DE8;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    min-height: 100%; margin: 0;
+    background: var(--paper); color: var(--ink);
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  .app { max-width: 640px; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
+  .screen { display: flex; flex-direction: column; gap: 1.1rem; }
+  [hidden] { display: none !important; }
+
+  /* ---------- 공통 버튼 ---------- */
+  .row { display: flex; gap: 0.6rem; }
+  .btn {
+    flex: 1; font: inherit; font-weight: 600; padding: 0.8rem; border-radius: 10px; cursor: pointer;
+    border: 2px solid var(--ink); background: var(--ink); color: var(--paper);
+  }
+  .btn.ghost { background: transparent; color: var(--ink); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .choice:focus-visible, .btn:focus-visible, .tabs button:focus-visible, .back:focus-visible { outline: 3px solid var(--mark); outline-offset: 2px; }
+  input {
+    width: 100%; font: inherit; font-size: 1.2rem; color: var(--ink);
+    background: var(--panel); border: 2px solid var(--line); border-radius: 10px; padding: 0.8rem;
+  }
+  input:focus { outline: 3px solid var(--mark); outline-offset: 1px; }
+  .row input { flex: 1; min-width: 0; }
+  .msg { min-height: 1.5em; margin: 0; font-size: 0.95rem; }
+  .msg.err { color: var(--wrong); }
+
+  /* ---------- 로비 ---------- */
+  .logo { display: flex; margin-top: 1.5rem; }
+  .logo span {
+    width: 3.6rem; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--line); margin-left: -2px; background: var(--panel);
+    font-family: "Gowun Batang", serif; font-weight: 700; font-size: 2.2rem;
+  }
+  .logo span:first-child { margin-left: 0; }
+  .logo span.hl { background: var(--mark); }
+  .tagline { margin: 0; opacity: 0.75; }
+
+  .tabs { display: flex; border: 2px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .tabs button {
+    flex: 1; border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 600;
+    padding: 0.6rem 0.5rem; cursor: pointer;
+  }
+  .tabs button.on { background: var(--line); color: var(--paper); }
+
+  .choices { display: flex; flex-direction: column; gap: 0.7rem; }
+  .choice {
+    display: block; width: 100%; text-align: left; cursor: pointer; font: inherit; color: var(--ink);
+    background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 1rem 1.1rem;
+  }
+  .choice strong { display: block; font-family: "Gowun Batang", serif; font-size: 1.35rem; margin-bottom: 0.2rem; }
+  .choice small { opacity: 0.75; font-size: 0.9rem; }
+  .choice.game { border-color: var(--ink); border-width: 2px; box-shadow: 4px 4px 0 var(--mark); }
+  .piece-list { display: flex; flex-direction: column; gap: 0.5rem; padding-left: 0.9rem; border-left: 3px solid var(--mark); }
+  .piece-list .choice { padding: 0.75rem 1rem; }
+  .piece-list .choice strong { font-size: 1.1rem; }
+  .best { font-size: 0.9rem; opacity: 0.8; margin: 0; }
+
+  /* 내 문장 관리 */
+  .btn.add { flex: 0 0 auto; padding: 0.8rem 1.2rem; }
+  .meter { height: 0.7rem; border: 2px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--panel); }
+  .meter div { height: 100%; width: 0; background: var(--line); transition: width 0.3s; }
+  .meter.full div { background: var(--mark); }
+  .mine-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .mine-list li {
+    display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.2rem;
+    border-bottom: 1px solid var(--line); font-family: "Gowun Batang", serif; font-size: 1.05rem;
+  }
+  .mine-list li span.num { font-family: "IBM Plex Sans KR", sans-serif; font-size: 0.8rem; opacity: 0.6; width: 1.6rem; flex: 0 0 auto; }
+  .mine-list li span.text { flex: 1; overflow-wrap: anywhere; }
+  .mine-list li button {
+    flex: 0 0 auto; border: 1px solid var(--wrong); color: var(--wrong); background: transparent;
+    border-radius: 6px; font-family: "IBM Plex Sans KR", sans-serif; font-size: 0.8rem; padding: 0.25rem 0.55rem; cursor: pointer;
+  }
+
+  /* ---------- 연습 화면 ---------- */
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+  .back { border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 600; padding: 0.4rem 0; cursor: pointer; }
+  .piece-title { font-family: "Gowun Batang", serif; font-weight: 700; font-size: 1.15rem; margin: 0; text-align: right; }
+  .stats { display: flex; gap: 1.5rem; font-size: 0.95rem; }
+  .stats b { font-size: 1.35rem; font-variant-numeric: tabular-nums; margin-right: 0.2rem; }
+  .sheet {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(2.3rem, 1fr));
+    border-top: 2px solid var(--line); border-left: 2px solid var(--line);
+    background: var(--panel); cursor: text;
+  }
+  .cell {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    font-family: "Gowun Batang", serif; font-size: 1.45rem; color: var(--faint);
+  }
+  .cell.ok { color: var(--ink); }
+  .cell.bad { color: var(--wrong); background: var(--wrong-bg); }
+  .cell.now { background: var(--mark); }
+  .cell.composing { color: var(--ink); opacity: 0.6; }
+  .cell { position: relative; }
+  .cell.ghost { box-shadow: inset 0 0 0 3px var(--ghost); }
+  .cell.ghost::after {
+    content: "👻"; position: absolute; top: -0.2rem; right: -0.1rem; font-size: 0.75rem;
+    animation: float 0.8s ease-in-out infinite alternate;
+  }
+  @keyframes float { to { transform: translateY(-3px); } }
+  .ghost-info { margin: -0.4rem 0 0; min-height: 1.4em; font-size: 0.95rem; color: var(--ghost); font-weight: 600; }
+  .next-line { margin: 0.5rem 0 0; font-family: "Gowun Batang", serif; color: var(--faint); font-size: 1.05rem; }
+  .summary { border: 2px solid var(--line); border-radius: 10px; padding: 1rem; background: var(--panel); display: flex; flex-direction: column; gap: 0.8rem; }
+  .summary h2 { font-family: "Gowun Batang", serif; margin: 0; font-size: 1.3rem; }
+  .summary p { margin: 0; }
+
+  /* ---------- 게임: 타자 디펜스 ---------- */
+  #game { gap: 0.7rem; }
+  .hud { display: flex; align-items: baseline; gap: 1.1rem; font-size: 0.95rem; }
+  .hud b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  .hp { color: var(--wrong); letter-spacing: 0.1em; font-size: 1.1rem; }
+  .combo { margin-left: auto; font-weight: 600; }
+  .field {
+    position: relative; overflow: hidden;
+    height: clamp(190px, 44vh, 380px); height: clamp(190px, 44dvh, 380px);
+    border: 2px solid var(--line); border-radius: 12px; background-color: var(--panel);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 1.8rem 1.8rem;
+  }
+  .castle {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 13%;
+    display: flex; align-items: center; justify-content: center; font-size: 1.9rem;
+    border-right: 2px dashed var(--line); background: var(--paper); transition: background 0.15s;
+  }
+  .castle.hit { background: var(--wrong-bg); }
+  .castle.fire { background: var(--mark); }
+  .enemy {
+    position: absolute; transform: translateY(-50%); display: flex; align-items: center; gap: 0.2rem;
+    white-space: nowrap; font-family: "Gowun Batang", serif; font-size: 1.05rem; will-change: left;
+  }
+  .enemy .mon { font-size: 1.35rem; }
+  .enemy .word { background: var(--panel); border: 1.5px solid var(--line); border-radius: 6px; padding: 0.1rem 0.4rem; }
+  .enemy.target .word { background: var(--mark); border-color: var(--ink); }
+  .enemy.dead { animation: pop 0.3s forwards; }
+  @keyframes pop { to { transform: translateY(-50%) scale(1.6); opacity: 0; } }
+  .shot {
+    position: absolute; height: 3px; background: var(--ink); transform: translateY(-50%);
+    transform-origin: left center; animation: shot 0.18s forwards;
+  }
+  @keyframes shot { from { opacity: 1; } to { opacity: 0; } }
+  .toast {
+    position: absolute; left: 50%; top: 12%; transform: translateX(-50%);
+    background: var(--ink); color: var(--paper); font-weight: 600; padding: 0.3rem 0.8rem; border-radius: 999px;
+  }
+  .overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.6rem; padding: 1rem; text-align: center;
+    background: color-mix(in srgb, var(--paper) 90%, transparent);
+  }
+  .overlay h2 { font-family: "Gowun Batang", serif; margin: 0; font-size: 1.6rem; }
+  .overlay p { margin: 0; max-width: 22rem; line-height: 1.5; white-space: pre-line; }
+  .overlay .row { width: min(100%, 20rem); }
+  .enemy.special .word { border: 2px solid var(--ink); font-weight: 700; }
+  .enemy.special .mon { animation: bob 0.6s ease-in-out infinite alternate; }
+  @keyframes bob { to { transform: translateY(-4px); } }
+  .field.frozen { background-color: color-mix(in srgb, var(--panel) 70%, #8FC8E8); }
+  .settings { gap: 0.5rem; flex-wrap: wrap; }
+  .settings .btn { min-width: 8.5rem; }
+  .settings .btn { padding: 0.55rem; font-size: 0.9rem; border-width: 1.5px; }
+  .shake { animation: shake 0.25s; }
+
+
+  /* ---------- 끝말잇기 배틀 ---------- */
+  .timer { height: 0.8rem; border: 2px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--panel); }
+  .timer div { height: 100%; width: 100%; background: var(--line); }
+  .timer.warn div { background: var(--wrong); }
+  .chain-log {
+    display: flex; flex-direction: column; gap: 0.45rem; padding: 0.8rem; overflow-y: auto;
+    height: clamp(140px, 30vh, 300px); height: clamp(140px, 30dvh, 300px);
+    border: 2px solid var(--line); border-radius: 12px; background-color: var(--panel);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px); background-size: 100% 1.8rem;
+  }
+  .bubble {
+    max-width: 75%; padding: 0.35rem 0.75rem; border-radius: 12px; border: 1.5px solid var(--line);
+    font-family: "Gowun Batang", serif; font-size: 1.2rem; background: var(--paper);
+  }
+  .bubble.cpu { align-self: flex-start; border-bottom-left-radius: 3px; }
+  .bubble.me { align-self: flex-end; border-bottom-right-radius: 3px; background: var(--mark); border-color: var(--ink); }
+  .bubble.sys { align-self: center; font-family: "IBM Plex Sans KR", sans-serif; font-size: 0.85rem; border-style: dashed; background: transparent; }
+  .bubble b { color: var(--wrong); }
+  .bubble small { font-family: "IBM Plex Sans KR", sans-serif; font-size: 0.75rem; opacity: 0.7; margin-left: 0.3rem; }
+  .next-syl { display: flex; align-items: center; gap: 0.8rem; }
+  .next-syl .big {
+    width: 3.4rem; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--ink); background: var(--mark); font-family: "Gowun Batang", serif; font-weight: 700; font-size: 2rem;
+  }
+  .next-syl p { margin: 0; font-size: 0.95rem; }
+
+  /* ---------- 통계 ---------- */
+  .card { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+  .card h3 { margin: 0; font-family: "Gowun Batang", serif; font-size: 1.15rem; }
+  .card .note { margin: 0; font-size: 0.85rem; opacity: 0.7; }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+  .stat-grid div { border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem 0.4rem; text-align: center; }
+  .stat-grid b { display: block; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+  .stat-grid span { font-size: 0.8rem; opacity: 0.75; }
+  .chart { width: 100%; height: auto; display: block; }
+  .chart .axis { stroke: var(--grid); stroke-width: 1; }
+  .chart .line { fill: none; stroke: var(--line); stroke-width: 2.5; stroke-linejoin: round; }
+  .chart .dot { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+  .chart text { fill: var(--ink); font-size: 9px; opacity: 0.7; font-family: "IBM Plex Sans KR", sans-serif; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { padding: 0.45rem 0.35rem; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { font-weight: 600; opacity: 0.75; font-size: 0.8rem; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chips span {
+    display: inline-flex; align-items: baseline; gap: 0.35rem; border: 1.5px solid var(--wrong);
+    border-radius: 8px; padding: 0.3rem 0.6rem; background: var(--wrong-bg);
+  }
+  .chips b { font-family: "Gowun Batang", serif; font-size: 1.3rem; color: var(--wrong); }
+  .chips small { font-size: 0.8rem; }
+  .btn.danger { border-color: var(--wrong); color: var(--wrong); background: transparent; }
+  @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+
+  /* ======================= 보라색 게임 테마 ======================= */
+  /* ★ 색깔 모음: 보라 + 노랑 포인트 */
+  :root {
+    --paper: #F1ECFF;  --panel: #FFFFFF;  --line: #7B5CE0;  --grid: #E4DBFB;
+    --ink: #2A1B4D;    --faint: #B3A3E2;  --wrong: #E5484D; --wrong-bg: #FFE1E3;
+    --mark: #FFD54A;   --ghost: #00A9BD;
+    --deep: #4B2FB0;   --bright: #9B7BFF; /* 진한 보라, 밝은 보라 */
+    --font-game: "Jua", "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #160F2C; --panel: #221A40; --line: #8C6CFF; --grid: #2F2654;
+      --ink: #F1ECFF;   --faint: #5F548C; --wrong: #FF6B70; --wrong-bg: #3D1C2A;
+      --mark: #F2C230;  --ghost: #3FD6E6; --deep: #2E1A7A; --bright: #A88BFF;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #160F2C; --panel: #221A40; --line: #8C6CFF; --grid: #2F2654;
+    --ink: #F1ECFF;   --faint: #5F548C; --wrong: #FF6B70; --wrong-bg: #3D1C2A;
+    --mark: #F2C230;  --ghost: #3FD6E6; --deep: #2E1A7A; --bright: #A88BFF;
+  }
+
+  /* 배경: 위쪽은 보라 하늘, 반짝이 점 */
+  body {
+    background:
+      radial-gradient(circle at 15% 8%, rgba(255,255,255,0.35) 0 2px, transparent 3px) 0 0 / 90px 90px,
+      radial-gradient(circle at 70% 40%, rgba(255,255,255,0.25) 0 1.5px, transparent 2.5px) 0 0 / 130px 130px,
+      linear-gradient(180deg, var(--deep) 0, var(--line) 190px, var(--paper) 420px) no-repeat,
+      var(--paper);
+    background-attachment: scroll;
+  }
+  h1, h2, h3, .piece-title, .choice strong, .btn, .tabs button, .back, .hud, .stats, .logo span, .toast, .kicker {
+    font-family: var(--font-game); font-weight: 400;
+  }
+  .stats b, .hud b, .stat-grid b { font-family: var(--font-game); font-weight: 400; }
+
+  /* 화면 전환 */
+  .screen:not([hidden]) { animation: rise 0.3s cubic-bezier(.2,.9,.3,1.2); }
+  .screen .screen:not([hidden]) { animation: none; }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+
+  /* 로고: 게임 타일 */
+  .logo { gap: 0.35rem; margin-top: 1rem; }
+  .logo span {
+    margin-left: 0; border: 0; border-radius: 14px; color: #fff; font-size: 2.3rem;
+    background: linear-gradient(180deg, var(--bright), var(--line));
+    box-shadow: 0 5px 0 var(--deep), 0 8px 14px rgba(30, 10, 80, 0.35);
+    animation: tile-in 0.5s cubic-bezier(.3,1.6,.5,1) backwards;
+  }
+  .logo span:nth-child(2) { animation-delay: 0.06s; }
+  .logo span:nth-child(3) { animation-delay: 0.12s; }
+  .logo span:nth-child(4) { animation-delay: 0.18s; }
+  .logo span.hl { background: linear-gradient(180deg, #FFE380, var(--mark)); color: var(--deep); box-shadow: 0 5px 0 #C99A10, 0 8px 14px rgba(30,10,80,0.35); transform: rotate(-6deg); }
+  @keyframes tile-in { from { transform: translateY(-30px) scale(0.6); opacity: 0; } }
+  .tagline { color: #fff; opacity: 1; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+  .kicker {
+    background: var(--mark); color: var(--deep); padding: 0.15rem 0.6rem; border-radius: 999px;
+    font-size: 0.85rem; box-shadow: 0 3px 0 #C99A10; transform: rotate(-3deg); text-shadow: none;
+  }
+
+  /* 탭 */
+  .tabs { border: 0; background: rgba(0, 0, 0, 0.18); padding: 4px; gap: 4px; }
+  .tabs button { color: #fff; border-radius: 999px; font-size: 1.05rem; transition: background 0.2s, color 0.2s, transform 0.1s; }
+  .tabs button.on { background: #fff; color: var(--deep); box-shadow: 0 3px 0 var(--deep); }
+  .tabs button:active { transform: translateY(2px); }
+
+  /* 메뉴 카드: 게임 메뉴 버튼처럼 */
+  .choice {
+    display: flex; align-items: center; gap: 0.9rem; border: 0; border-radius: 18px; padding: 0.9rem 1rem;
+    box-shadow: 0 6px 0 var(--grid), 0 10px 18px rgba(40, 20, 100, 0.12);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .choice:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--grid), 0 4px 8px rgba(40,20,100,0.12); }
+  .choice strong { font-size: 1.35rem; color: var(--deep); }
+  .choice .ico {
+    flex: 0 0 auto; width: 3.2rem; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    border-radius: 14px; color: #fff; font-family: var(--font-game); font-size: 1.8rem;
+    background: linear-gradient(180deg, var(--bright), var(--line)); box-shadow: 0 4px 0 var(--deep);
+  }
+  .choice .txt { flex: 1; min-width: 0; }
+  .choice.game { border: 3px solid var(--mark); box-shadow: 0 6px 0 #C99A10, 0 10px 18px rgba(40,20,100,0.15); position: relative; }
+  .choice.game:active { box-shadow: 0 2px 0 #C99A10; }
+  .choice.game .ico { background: linear-gradient(180deg, #FFE380, var(--mark)); color: var(--deep); box-shadow: 0 4px 0 #C99A10; }
+  .choice.game::after {
+    content: "GAME"; position: absolute; top: -0.7rem; right: 0.9rem; font-family: var(--font-game);
+    background: var(--wrong); color: #fff; font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+  }
+  .piece-list { border-left-color: var(--line); }
+  .piece-list .choice { box-shadow: 0 4px 0 var(--grid); }
+  :root .dark-text { color: var(--ink); }
+
+  /* 버튼: 눌리는 3D 버튼 */
+  .btn {
+    border: 0; border-radius: 14px; font-size: 1.05rem; color: #fff;
+    background: linear-gradient(180deg, var(--bright), var(--line));
+    box-shadow: 0 5px 0 var(--deep); transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--deep); }
+  .btn.ghost { background: var(--panel); color: var(--deep); box-shadow: 0 5px 0 var(--grid); border: 2px solid var(--grid); }
+  .btn.ghost:active:not(:disabled) { box-shadow: 0 1px 0 var(--grid); }
+  .btn.danger { background: var(--panel); color: var(--wrong); border: 2px solid var(--wrong-bg); box-shadow: 0 5px 0 var(--wrong-bg); }
+  .back {
+    font-size: 1rem; color: #fff; background: rgba(0,0,0,0.2); border: 0; border-radius: 999px; padding: 0.4rem 0.9rem;
+  }
+  .topbar .piece-title { color: #fff; font-size: 1.3rem; text-shadow: 0 2px 0 var(--deep); }
+
+  /* 점수판: 게임 HUD 배지 */
+  .stats, .hud { gap: 0.5rem; flex-wrap: wrap; }
+  .stats > span, .hud > span {
+    display: inline-flex; align-items: baseline; gap: 0.2rem; background: var(--panel); color: var(--ink);
+    border-radius: 999px; padding: 0.25rem 0.8rem; box-shadow: 0 3px 0 var(--grid);
+  }
+  .hud .combo:empty { display: none; }
+  .hud .combo { background: var(--mark); color: var(--deep); box-shadow: 0 3px 0 #C99A10; margin-left: 0; }
+  .hp { color: var(--wrong) !important; letter-spacing: 0.05em; }
+  .ghost-info { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+
+  /* 입력창 */
+  input { border: 3px solid var(--grid); border-radius: 14px; box-shadow: inset 0 3px 0 var(--paper); }
+  input:focus { outline: none; border-color: var(--line); box-shadow: 0 0 0 4px color-mix(in srgb, var(--line) 25%, transparent); }
+
+  /* 원고지 */
+  .sheet { border: 0; border-radius: 12px; overflow: hidden; outline: 0; margin: 0; padding: 0;
+           box-shadow: 0 0 0 3px var(--line), 0 6px 0 3px var(--deep), 0 12px 20px rgba(40,20,100,0.2); }
+  .cell { border-color: var(--grid); font-family: var(--font-game); }
+  .cell.ok { color: var(--deep); }
+  .cell.bad { color: var(--wrong); }
+  .cell.now { background: var(--mark); }
+  .cell.now::before {
+    content: ""; position: absolute; left: 20%; right: 20%; bottom: 10%; height: 3px; border-radius: 2px;
+    background: var(--deep); animation: caret 1s steps(2) infinite;
+  }
+  @keyframes caret { 50% { opacity: 0; } }
+  .next-line { color: var(--line); font-family: var(--font-game); }
+  .msg { font-weight: 600; }
+
+  /* 카드, 결과창 */
+  .card, .summary { border: 0; border-radius: 18px; box-shadow: 0 6px 0 var(--grid), 0 10px 18px rgba(40,20,100,0.12); }
+  .card h3, .summary h2 { color: var(--deep); }
+  .stat-grid div { border: 0; background: var(--paper); border-radius: 12px; }
+  .stat-grid b { color: var(--deep); font-size: 1.45rem; }
+  .meter, .timer { border: 0; background: var(--grid); height: 0.9rem; }
+  .meter div, .timer div { background: linear-gradient(90deg, var(--bright), var(--line)); border-radius: 999px; }
+  .meter.full div { background: linear-gradient(90deg, #FFE380, var(--mark)); }
+  .timer.warn div { background: var(--wrong); }
+  .mine-list li { border-color: var(--grid); }
+
+  /* 타자 디펜스: 밤하늘 전장 */
+  .field {
+    border: 0; border-radius: 18px;
+    background:
+      radial-gradient(circle at 20% 15%, #fff 0 1px, transparent 1.5px) 0 0 / 70px 70px,
+      radial-gradient(circle at 60% 35%, rgba(255,255,255,0.7) 0 1px, transparent 1.5px) 0 0 / 110px 110px,
+      linear-gradient(to top, #3A8C4F 0 7%, #4FB066 7% 8.5%, transparent 8.5%),
+      linear-gradient(180deg, #1E1450 0%, #4B2FB0 55%, #8C6CFF 100%);
+    box-shadow: 0 6px 0 var(--deep), 0 12px 22px rgba(40,20,100,0.3);
+  }
+  .field.frozen { background-color: transparent; filter: hue-rotate(-40deg) saturate(1.3); }
+  .castle {
+    border-right: 3px dashed rgba(255,255,255,0.35); font-size: 2.3rem;
+    background: linear-gradient(90deg, rgba(255,255,255,0.18), transparent);
+    filter: drop-shadow(0 3px 0 rgba(0,0,0,0.3));
+  }
+  .castle.hit { background: rgba(229, 72, 77, 0.55); }
+  .castle.fire { background: rgba(255, 213, 74, 0.45); }
+  .enemy .word {
+    font-family: var(--font-game); border: 0; border-radius: 10px; padding: 0.15rem 0.55rem;
+    background: #fff; color: #2A1B4D; box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+  }
+  .enemy.target .word { background: var(--mark); color: #2A1B4D; box-shadow: 0 3px 0 #C99A10; }
+  .enemy.special .word { border: 2px solid var(--mark); }
+  .enemy .mon { font-size: 1.5rem; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.35)); }
+  .shot { height: 5px; border-radius: 3px; background: linear-gradient(90deg, #fff, var(--mark)); box-shadow: 0 0 10px var(--mark); }
+  .toast { font-family: var(--font-game); font-size: 1.15rem; background: var(--mark); color: var(--deep); box-shadow: 0 4px 0 #C99A10; }
+  .overlay { background: rgba(22, 12, 60, 0.72); color: #fff; backdrop-filter: blur(3px); }
+  .overlay h2 { color: var(--mark); font-size: 2rem; text-shadow: 0 3px 0 var(--deep); }
+
+  /* 끝말잇기 */
+  .chain-log { border: 0; border-radius: 18px; background: var(--panel); background-image: none; box-shadow: 0 6px 0 var(--grid), 0 10px 18px rgba(40,20,100,0.12); }
+  .bubble { font-family: var(--font-game); border: 0; border-radius: 16px; background: var(--paper); box-shadow: 0 3px 0 var(--grid); animation: pop-in 0.22s cubic-bezier(.3,1.6,.5,1); }
+  .bubble.me { background: linear-gradient(180deg, var(--bright), var(--line)); color: #fff; box-shadow: 0 3px 0 var(--deep); }
+  .bubble.me b { color: var(--mark); }
+  .bubble.me small { opacity: 0.85; }
+  .bubble.sys { background: transparent; box-shadow: none; border: 2px dashed var(--grid); }
+  @keyframes pop-in { from { transform: scale(0.6); opacity: 0; } }
+  .next-syl .big { border: 0; border-radius: 14px; font-family: var(--font-game); color: var(--deep);
+                   background: linear-gradient(180deg, #FFE380, var(--mark)); box-shadow: 0 5px 0 #C99A10; transform: rotate(-4deg); }
+
+  /* 설정 버튼 세 개를 한 줄에 */
+  .settings { flex-wrap: nowrap; gap: 0.45rem; }
+  .settings .btn { min-width: 0; font-size: 0.85rem; padding: 0.6rem 0.3rem; white-space: nowrap; }
+
+  /* 내 레벨 카드 */
+  .player {
+    display: flex; align-items: center; gap: 0.8rem; padding: 0.7rem 0.9rem; border-radius: 18px;
+    background: rgba(0, 0, 0, 0.18); color: #fff;
+  }
+  .p-lv {
+    flex: 0 0 auto; width: 3.3rem; aspect-ratio: 1; border-radius: 50%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; line-height: 1; font-family: var(--font-game);
+    background: linear-gradient(180deg, #FFE380, var(--mark)); color: var(--deep); box-shadow: 0 4px 0 #C99A10;
+  }
+  .p-lv small { font-size: 0.7rem; }
+  .p-lv b { font-size: 1.5rem; font-weight: 400; }
+  .p-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .p-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; font-family: var(--font-game); }
+  .p-row strong { font-weight: 400; font-size: 1.1rem; }
+  .p-row span { font-size: 0.85rem; opacity: 0.9; white-space: nowrap; }
+  .xpbar { height: 0.8rem; border-radius: 999px; background: rgba(0, 0, 0, 0.25); overflow: hidden; }
+  .xpbar div {
+    height: 100%; width: 0; border-radius: 999px; transition: width 0.6s cubic-bezier(.2,.9,.3,1.1);
+    background: repeating-linear-gradient(-45deg, #FFE380 0 8px, var(--mark) 8px 16px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .screen:not([hidden]), .logo span, .bubble, .enemy.special .mon, .cell.ghost::after, .cell.now::before { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================= HTML: 화면 뼈대 ======================= -->
+<div class="app">
+
+  <!-- ===== 로비 ===== -->
+  <section id="lobby" class="screen">
+    <div class="logo" aria-label="타자 연습">
+      <span>타</span><span class="hl">자</span><span>연</span><span>습</span>
+    </div>
+    <p class="tagline"><span class="kicker">LEVEL UP!</span>오늘도 한 글자씩 레벨 업!</p>
+
+    <!-- 내 레벨 카드 -->
+    <div class="player">
+      <div class="p-lv"><small>LV</small><b id="pLv">1</b></div>
+      <div class="p-info">
+        <div class="p-row"><strong id="pTitle">새내기 타자수</strong><span id="pXp">0 / 100 XP</span></div>
+        <div class="xpbar"><div id="pXpFill"></div></div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button data-tab="ko">한글</button>
+      <button data-tab="en">영어</button>
+      <button data-tab="mine">내 문장</button>
+    </div>
+
+    <!-- 한글/영어 탭 내용 -->
+    <div id="langPanel" class="choices">
+      <button id="btnShort" class="choice">
+        <span class="ico" aria-hidden="true">짧</span>
+        <span class="txt"><strong>짧은 글</strong>
+          <small id="shortInfo">짧은 문장을 섞어서 연습해요</small></span>
+      </button>
+      <button id="btnLong" class="choice">
+        <span class="ico" aria-hidden="true">긴</span>
+        <span class="txt"><strong>긴 글</strong>
+          <small>노래 가사, 시를 처음부터 끝까지 쳐요</small></span>
+      </button>
+      <div id="pieceList" class="piece-list" hidden></div>
+      <button id="btnGame" class="choice game">
+        <span class="ico" aria-hidden="true">방</span>
+        <span class="txt"><strong>게임 · 타자 디펜스</strong>
+          <small id="gameInfo">몰려오는 몬스터를 단어로 막아요</small></span>
+      </button>
+      <button id="btnChain" class="choice game">
+        <span class="ico" aria-hidden="true">끝</span>
+        <span class="txt"><strong>게임 · 끝말잇기 배틀</strong>
+          <small id="chainInfo">컴퓨터와 시간 안에 끝말잇기</small></span>
+      </button>
+    </div>
+
+    <!-- 내 문장 탭 내용 -->
+    <div id="minePanel" class="screen" hidden>
+      <div id="meter" class="meter"><div id="meterFill"></div></div>
+      <p id="mineCount" class="best"></p>
+      <button id="btnMineStart" class="btn" disabled>연습 시작</button>
+      <div class="row">
+        <input id="mineInput" type="text" autocomplete="off" autocorrect="off"
+               autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="연습할 문장 입력">
+        <button id="btnAdd" class="btn add">추가</button>
+      </div>
+      <p id="mineMsg" class="msg"></p>
+      <ol id="mineList" class="mine-list"></ol>
+    </div>
+
+    <button id="btnStats" class="btn ghost">📊 내 통계</button>
+
+    <!-- 소리 / 진동 설정 -->
+    <div class="row settings">
+      <button id="btnSound" class="btn ghost"></button>
+      <button id="btnVibe" class="btn ghost"></button>
+      <button id="btnGhost" class="btn ghost"></button>
+    </div>
+  </section>
+
+  <!-- ===== 연습 화면 ===== -->
+  <section id="play" class="screen" hidden>
+    <div class="topbar">
+      <button id="btnBack" class="back">← 로비</button>
+      <p id="pieceTitle" class="piece-title"></p>
+    </div>
+    <div class="stats">
+      <span><b id="cpm">0</b>타</span>
+      <span><b id="acc">100</b>%</span>
+      <span><b id="progress">1/1</b><span id="unit">문장</span></span>
+    </div>
+    <p id="ghostInfo" class="ghost-info"></p>
+    <div id="practice">
+      <div id="sheet" class="sheet"></div>
+      <p id="nextLine" class="next-line"></p>
+    </div>
+    <input id="typing" type="text" autocomplete="off" autocorrect="off"
+           autocapitalize="off" spellcheck="false" enterkeyhint="next" placeholder="여기에 따라 치세요">
+    <div id="playButtons" class="row">
+      <button id="btnNext" class="btn">다음</button>
+      <button id="btnReset" class="btn ghost">처음부터</button>
+    </div>
+    <p id="msg" class="msg"></p>
+    <div id="summary" class="summary" hidden>
+      <h2>연습 끝!</h2>
+      <div>
+        <p id="sumCpm"></p>
+        <p id="sumAcc"></p>
+        <p id="sumBest"></p>
+        <p id="sumGhost"></p>
+      </div>
+      <div class="row">
+        <button id="btnAgain" class="btn">다시 하기</button>
+        <button id="btnLobby" class="btn ghost">로비로</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 통계 화면 ===== -->
+  <section id="stats" class="screen" hidden>
+    <div class="topbar">
+      <button id="btnStatsBack" class="back">← 로비</button>
+      <p class="piece-title">내 통계</p>
+    </div>
+    <div id="statsBody" class="screen"></div>
+    <button id="btnStatsReset" class="btn danger">통계 초기화</button>
+  </section>
+
+  <!-- ===== 끝말잇기 배틀 ===== -->
+  <section id="chain" class="screen" hidden>
+    <div class="topbar">
+      <button id="btnChainBack" class="back">← 로비</button>
+      <p class="piece-title">끝말잇기 배틀</p>
+    </div>
+    <div class="hud">
+      <span><b id="cScore">0</b>점</span>
+      <span><b id="cRound">0</b>단어</span>
+      <span id="cWins" class="combo"></span>
+    </div>
+    <div id="cTimerBox" class="timer"><div id="cTimer"></div></div>
+    <div id="chainLog" class="chain-log"></div>
+    <div class="next-syl">
+      <span id="cNext" class="big">?</span>
+      <p id="cHint">이 글자로 시작하는 단어를 쳐요</p>
+    </div>
+    <input id="chainInput" type="text" autocomplete="off" autocorrect="off"
+           autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="단어 입력 후 띄어쓰기">
+    <p id="cMsg" class="msg"></p>
+    <div id="cOver" class="summary">
+      <h2 id="cOverTitle">끝말잇기 배틀</h2>
+      <p id="cOverText"></p>
+      <div class="row">
+        <button id="btnChainStart" class="btn">시작하기</button>
+        <button id="btnChainLobby" class="btn ghost">로비로</button>
+      </div>
+      <button id="btnWordBook" class="btn ghost">📖 내 단어장</button>
+    </div>
+    <div id="wordBook" class="card" hidden>
+      <h3>📖 내 단어장</h3>
+      <p class="note">컴퓨터 사전에 없는 진짜 단어를 넣어 주세요. 여기 넣은 단어는 나도 쓸 수 있고 컴퓨터도 써요.</p>
+      <div class="row">
+        <input id="wordInput" type="text" autocomplete="off" autocorrect="off"
+               autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="예: 무당벌레">
+        <button id="btnWordAdd" class="btn add">추가</button>
+      </div>
+      <p id="wordMsg" class="msg"></p>
+      <ol id="wordList" class="mine-list"></ol>
+    </div>
+  </section>
+
+  <!-- ===== 게임 화면: 타자 디펜스 ===== -->
+  <section id="game" class="screen" hidden>
+    <div class="topbar">
+      <button id="btnGameBack" class="back">← 로비</button>
+      <p class="piece-title">타자 디펜스</p>
+    </div>
+    <div class="hud">
+      <span id="hp" class="hp"></span>
+      <span><b id="gScore">0</b>점</span>
+      <span>Lv <b id="gLevel">1</b></span>
+      <span id="gCombo" class="combo"></span>
+    </div>
+    <div id="field" class="field">
+      <div id="castle" class="castle">🏰</div>
+      <div id="toast" class="toast" hidden></div>
+      <div id="overlay" class="overlay">
+        <h2 id="ovTitle">타자 디펜스</h2>
+        <p id="ovText"></p>
+        <div class="row">
+          <button id="btnOvMain" class="btn">시작하기</button>
+          <button id="btnOvSub" class="btn ghost" hidden>로비로</button>
+        </div>
+      </div>
+    </div>
+    <input id="gameInput" type="text" autocomplete="off" autocorrect="off"
+           autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="단어 입력 후 띄어쓰기">
+  </section>
+</div>
+
+<!-- ======================= 자바스크립트: 동작 ======================= -->
+<script>
+// ★★★ 짧은 글: 여기를 바꾸면 돼요! ★★★
+const SHORT = {
+  ko: [
+    "천 리 길도 한 걸음부터",
+    "티끌 모아 태산",
+    "하늘은 스스로 돕는 자를 돕는다",
+    "작은 코드 한 줄이 큰 앱을 만든다",
+    "오늘 할 일을 내일로 미루지 말자"
+  ],
+  en: [
+    "Practice makes perfect.",
+    "Every expert was once a beginner.",
+    "Code a little, test a little.",
+    "The quick brown fox jumps over the lazy dog."
+  ]
+};
+
+// ★★★ 긴 글: { title: "제목", lines: ["첫 줄", "둘째 줄", ...] } 모양으로 추가해요 ★★★
+const LONG = {
+  ko: [
+    {
+      title: "애국가",
+      lines: [
+        "동해 물과 백두산이 마르고 닳도록",
+        "하느님이 보우하사 우리나라 만세",
+        "무궁화 삼천리 화려 강산",
+        "대한 사람 대한으로 길이 보전하세",
+        "남산 위에 저 소나무 철갑을 두른 듯",
+        "바람 서리 불변함은 우리 기상일세",
+        "무궁화 삼천리 화려 강산",
+        "대한 사람 대한으로 길이 보전하세",
+        "가을 하늘 공활한데 높고 구름 없이",
+        "밝은 달은 우리 가슴 일편단심일세",
+        "무궁화 삼천리 화려 강산",
+        "대한 사람 대한으로 길이 보전하세",
+        "이 기상과 이 맘으로 충성을 다하여",
+        "괴로우나 즐거우나 나라 사랑하세",
+        "무궁화 삼천리 화려 강산",
+        "대한 사람 대한으로 길이 보전하세"
+      ]
+    },
+    {
+      title: "진달래꽃 (김소월)",
+      lines: [
+        "나 보기가 역겨워 가실 때에는",
+        "말없이 고이 보내 드리우리다",
+        "영변에 약산 진달래꽃",
+        "아름 따다 가실 길에 뿌리우리다",
+        "가시는 걸음걸음 놓인 그 꽃을",
+        "사뿐히 즈려밟고 가시옵소서",
+        "나 보기가 역겨워 가실 때에는",
+        "죽어도 아니 눈물 흘리우리다"
+      ]
+    }
+  ],
+  en: [
+    {
+      title: "Twinkle, Twinkle, Little Star",
+      lines: [
+        "Twinkle, twinkle, little star,",
+        "How I wonder what you are!",
+        "Up above the world so high,",
+        "Like a diamond in the sky.",
+        "When the blazing sun is gone,",
+        "When he nothing shines upon,",
+        "Then you show your little light,",
+        "Twinkle, twinkle, all the night."
+      ]
+    }
+  ]
+};
+
+// ★★★ 게임 단어: [쉬운 단어, 보통 단어, 어려운 단어] 순서. 레벨이 오르면 어려운 단어가 나와요 ★★★
+const WORDS = {
+  ko: [
+    ["사과", "나무", "바다", "하늘", "구름", "기차", "우유", "모자", "가방", "연필", "시계", "바람",
+     "토끼", "거북", "사자", "오리", "포도", "수박", "딸기", "감자", "노을", "친구", "학교", "우산",
+     "의자", "창문", "편지", "사탕", "김밥", "별빛"],
+    ["고구마", "무지개", "비행기", "자전거", "도서관", "운동장", "코끼리", "호랑이", "고양이", "강아지",
+     "눈사람", "소나기", "초콜릿", "냉장고", "컴퓨터", "선풍기", "지우개", "원숭이", "개구리", "다람쥐",
+     "병아리", "옥수수", "복숭아", "오렌지", "할머니", "거미줄"],
+    ["해바라기", "아이스크림", "텔레비전", "대한민국", "우주비행사", "크리스마스", "오케스트라",
+     "스마트폰", "반딧불이", "수학여행", "자동판매기", "태권도장", "미끄럼틀", "불꽃놀이", "눈썰매장",
+     "도깨비불", "무지개다리"]
+  ],
+  en: [
+    ["cat", "dog", "sun", "sky", "red", "cup", "map", "box", "pen", "egg", "hat", "bus", "fox", "owl", "ice", "key"],
+    ["apple", "tiger", "music", "water", "house", "green", "happy", "cloud", "piano", "train", "robot",
+     "pizza", "candy", "smile", "river"],
+    ["keyboard", "elephant", "rainbow", "computer", "dinosaur", "butterfly", "treasure", "mountain",
+     "umbrella", "volcano", "sandwich", "basketball", "adventure"]
+  ]
+};
+
+// ----- 도우미 -----
+const $ = (id) => document.getElementById(id);
+const sheet = $("sheet"), input = $("typing"), msg = $("msg");
+
+// ----- 상태 변수 -----
+let tab = "ko";         // 로비 탭: "ko", "en", "mine"
+let lang = "ko";        // 연습 언어
+let kind = "short";     // "short", "long", "mine"
+let pieceIndex = 0;
+let lines = [];
+let index = 0;
+let startTime = null;
+let composing = false;
+let results = [];
+let lastCorrect = 0;    // 직전까지 맞게 친 글자 수 (새로 맞으면 소리)
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function loadBest(key) {
+  try { return Number(localStorage.getItem(key)) || 0; } catch (e) { return 0; }
+}
+function saveBest(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) {}
+}
+function bestKey() {
+  if (kind === "mine") return "typing-best-mine";
+  return "typing-best-" + lang + "-" + kind + (kind === "long" ? "-" + pieceIndex : "");
+}
+
+// 화면 하나만 보이게 하기
+function showScreen(id) {
+  ["lobby", "play", "game", "stats", "chain"].forEach((s) => { $(s).hidden = (s !== id); });
+}
+
+// ----- 타수 계산: 한글은 자음·모음 누른 횟수로 셉니다 -----
+const DOUBLE_VOWELS = [9, 10, 11, 14, 15, 16, 19];
+const DOUBLE_FINALS = [3, 5, 6, 9, 10, 11, 12, 13, 14, 15, 18];
+function strokeCount(text) {
+  let count = 0;
+  for (const ch of text) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+      const s = code - 0xAC00;
+      const vowel = Math.floor(s / 28) % 21;
+      const final = s % 28;
+      count += 1;
+      count += DOUBLE_VOWELS.includes(vowel) ? 2 : 1;
+      if (final > 0) count += DOUBLE_FINALS.includes(final) ? 2 : 1;
+    } else {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+// ======================= 효과음 / 진동 =======================
+// 소리 파일 없이 브라우저가 직접 "삐" 소리를 만들어요 (Web Audio)
+let soundOn = true, vibeOn = true, ghostOn = true;
+try {
+  ghostOn = localStorage.getItem("typing-ghost") !== "off";
+  soundOn = localStorage.getItem("typing-sound") !== "off";
+  vibeOn = localStorage.getItem("typing-vibe") !== "off";
+} catch (e) {}
+let audioCtx = null;
+
+// freq: 음 높이(Hz), dur: 길이(초), type: 소리 모양, vol: 크기, slideTo: 끝날 때 음 높이
+function beep(freq, dur, type = "sine", vol = 0.12, slideTo = null) {
+  if (!soundOn) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    gain.gain.setValueAtTime(vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + dur);
+  } catch (e) {}
+}
+function buzz(pattern) {
+  if (vibeOn && navigator.vibrate) navigator.vibrate(pattern);   // 아이폰은 진동이 안 돼요
+}
+// ★ 효과음 모음: 숫자를 바꾸면 소리가 달라져요
+const SFX = {
+  tick()    { beep(880, 0.05, "sine", 0.05); buzz(8); },                           // 글자 하나 맞음
+  line()    { beep(660, 0.1); setTimeout(() => beep(990, 0.16), 90); buzz(40); },   // 한 줄 완성
+  kill()    { beep(900, 0.12, "square", 0.05, 300); buzz(25); },                    // 몬스터 처치
+  special() { [660, 880, 1320].forEach((f, i) => setTimeout(() => beep(f, 0.12, "triangle", 0.1), i * 70)); buzz([30, 40, 30]); },
+  levelUp() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.12, "triangle", 0.09), i * 80)); buzz(60); },
+  hurt()    { beep(160, 0.25, "sawtooth", 0.08, 80); buzz(150); },                   // 성이 맞음
+  win()     { [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => beep(f, 0.14, "triangle", 0.1), i * 90)); buzz([40, 50, 80]); }  // 고스트 이김
+};
+function renderSettings() {
+  $("btnSound").textContent = soundOn ? "🔊 소리 켜짐" : "🔇 소리 꺼짐";
+  $("btnVibe").textContent = vibeOn ? "📳 진동 켜짐" : "📴 진동 꺼짐";
+  $("btnGhost").textContent = ghostOn ? "👻 고스트 켜짐" : "👻 고스트 꺼짐";
+}
+
+// ======================= 통계 기록 =======================
+const MAX_HISTORY = 500;   // ★ 저장할 연습 기록 최대 개수
+function loadData(key, empty) {
+  try { return JSON.parse(localStorage.getItem(key)) || empty; } catch (e) { return empty; }
+}
+function saveData(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+}
+// 목록 끝에 하나 추가 (너무 많으면 오래된 것부터 버려요)
+function pushData(key, item) {
+  const list = loadData(key, []);
+  list.push(item);
+  while (list.length > MAX_HISTORY) list.shift();
+  saveData(key, list);
+}
+let sessionMs = 0;   // 이번 연습에 걸린 총 시간
+
+// ======================= 고스트 레이스 =======================
+// 문장마다 가장 빨리 친 기록을 저장해 두고, 다음에 칠 때 "과거의 나"로 같이 달려요.
+// 기록 모양: { total: 걸린 시간(ms), marks: [1번째 칸까지 걸린 시간, 2번째 칸까지..., ...], at: 저장한 날짜 }
+const MAX_GHOSTS = 300;      // ★ 저장할 고스트 최대 개수 (넘으면 오래된 것부터 지워요)
+const GHOST_MIN_ACC = 90;    // ★ 정확도가 이 이상일 때만 고스트로 저장
+
+let ghost = null;   // 지금 문장의 고스트 기록
+let marks = [];     // 지금 치고 있는 기록 (칸마다 도착한 시간)
+let cells = [];     // 원고지 칸들 (고스트 표시용)
+let ghostWins = 0, ghostLosses = 0;
+
+function loadGhosts() {
+  try { return JSON.parse(localStorage.getItem("typing-ghosts")) || {}; } catch (e) { return {}; }
+}
+function saveGhost(sentence, record) {
+  const all = loadGhosts();
+  all[sentence] = record;
+  const keys = Object.keys(all);
+  if (keys.length > MAX_GHOSTS) {
+    keys.sort((a, b) => all[a].at - all[b].at);               // 오래된 순서로 정렬
+    keys.slice(0, keys.length - MAX_GHOSTS).forEach((k) => delete all[k]);
+  }
+  try { localStorage.setItem("typing-ghosts", JSON.stringify(all)); } catch (e) {}
+}
+const sec = (ms) => (ms / 1000).toFixed(1);   // 1234 → "1.2"
+
+// 새 줄을 시작할 때 고스트 불러오기
+function prepareLine() {
+  marks = [];
+  ghost = ghostOn ? (loadGhosts()[lines[index]] || null) : null;
+}
+
+// 0.1초마다 고스트 위치 갱신
+function updateGhost() {
+  const box = $("ghostInfo");
+  if ($("play").hidden || !$("summary").hidden) return;
+  if (!ghost) {
+    box.textContent = ghostOn ? "👻 이 문장을 끝내면 고스트가 생겨요" : "";
+    cells.forEach((c) => c.classList.remove("ghost"));
+    return;
+  }
+  const n = cells.length;
+  let pos = 0;
+  if (!startTime) {
+    box.textContent = "👻 과거의 나: " + sec(ghost.total) + "초 · 치기 시작하면 출발!";
+  } else {
+    const elapsed = Date.now() - startTime;
+    pos = ghost.marks.filter((t) => t <= elapsed).length;   // 고스트가 지금까지 간 칸 수
+    const diff = marks.length - pos;
+    if (pos >= n) box.textContent = "👻 과거의 나는 벌써 도착했어요!";
+    else if (diff > 0) box.textContent = "👻 과거의 나보다 " + diff + "칸 앞서요";
+    else if (diff < 0) box.textContent = "👻 과거의 나보다 " + (-diff) + "칸 뒤처져요";
+    else box.textContent = "👻 과거의 나와 나란히!";
+  }
+  cells.forEach((c, i) => c.classList.toggle("ghost", i === pos && pos < n));
+}
+
+// ======================= 내 문장 =======================
+const MIN_MINE = 10;     // ★ 이만큼 등록해야 플레이할 수 있어요
+const ROUND_SIZE = 10;   // ★ 한 판에 나오는 문장 수
+
+function loadMine() {
+  try { return JSON.parse(localStorage.getItem("typing-mine")) || []; } catch (e) { return []; }
+}
+function saveMine(list) {
+  try { localStorage.setItem("typing-mine", JSON.stringify(list)); return true; } catch (e) { return false; }
+}
+
+// 대충 친 문장 막기: 문제가 있으면 이유를, 괜찮으면 null
+function checkSentence(t, list) {
+  const chars = Array.from(t.replace(/ /g, ""));
+  if (!t) return "문장을 입력해 주세요.";
+  if (chars.length < 5) return "띄어쓰기 빼고 5글자 이상 입력해 주세요.";
+  if (Array.from(t).length > 40) return "40글자 이하로 입력해 주세요.";
+  if (/[\u3131-\u318E]/.test(t)) return "ㅋㅋ, ㅎㅎ 같은 낱자는 쓸 수 없어요.";
+  if (!/[가-힣A-Za-z]/.test(t)) return "한글이나 영어가 들어간 문장을 입력해 주세요.";
+  if (/(.)\1\1/u.test(t.replace(/ /g, ""))) return "같은 글자를 3번 이상 연달아 쓸 수 없어요.";
+  const kinds = new Set(chars).size;
+  if (kinds < 4 || kinds / chars.length < 0.4) return "같은 글자만 반복하지 말고 제대로 된 문장을 써 주세요.";
+  if (list.includes(t)) return "이미 등록된 문장이에요.";
+  return null;
+}
+
+function renderMine() {
+  const list = loadMine();
+  const n = list.length;
+  $("meterFill").style.width = Math.min(n / MIN_MINE, 1) * 100 + "%";
+  $("meter").classList.toggle("full", n >= MIN_MINE);
+  $("mineCount").textContent = n >= MIN_MINE
+    ? n + "문장 등록됨 · 한 판에 " + Math.min(ROUND_SIZE, n) + "문장이 무작위로 나와요" +
+      (loadBest("typing-best-mine") ? " · 최고 " + loadBest("typing-best-mine") + "타" : "")
+    : n + " / " + MIN_MINE + " · " + (MIN_MINE - n) + "문장 더 등록하면 플레이할 수 있어요";
+  $("btnMineStart").disabled = n < MIN_MINE;
+
+  const ol = $("mineList");
+  ol.innerHTML = "";
+  list.forEach((text, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = '<span class="num"></span><span class="text"></span><button>삭제</button>';
+    li.querySelector(".num").textContent = i + 1;
+    li.querySelector(".text").textContent = text;
+    li.querySelector("button").addEventListener("click", () => {
+      const now = loadMine();
+      now.splice(i, 1);
+      saveMine(now);
+      renderMine();
+    });
+    ol.appendChild(li);
+  });
+}
+
+function addMine() {
+  const box = $("mineInput");
+  const t = box.value.trim().replace(/\s+/g, " ");
+  const list = loadMine();
+  const err = checkSentence(t, list);
+  const m = $("mineMsg");
+  if (err) { m.textContent = err; m.classList.add("err"); return; }
+  list.push(t);
+  if (!saveMine(list)) { m.textContent = "저장하지 못했어요."; m.classList.add("err"); return; }
+  m.textContent = "등록했어요!";
+  m.classList.remove("err");
+  box.value = "";
+  renderMine();
+  box.focus();
+}
+
+// ======================= 로비 =======================
+// ======================= 내 레벨 (경험치) =======================
+// 지금까지 한 연습·게임 기록으로 경험치를 계산해요 (따로 저장하지 않아요)
+const TITLES = [   // ★ [이 레벨부터, 칭호]
+  [1, "새내기 타자수"], [3, "연필 기사"], [5, "원고지 수호자"],
+  [8, "자판 마법사"], [12, "타자 영웅"], [16, "전설의 타자왕"]
+];
+function totalXp() {
+  let xp = 0;
+  loadData("typing-history", []).forEach((h) => { xp += h.lines * 10 + (h.acc >= 95 ? 20 : 0); });
+  loadData("typing-games", []).forEach((x) => { xp += x.kills * 3; });
+  loadData("typing-chains", []).forEach((x) => { xp += x.rounds * 4 + x.wins * 20; });
+  return xp;
+}
+function renderPlayer() {
+  let xp = totalXp(), lv = 1, need = 100;      // 레벨이 오를수록 필요한 경험치가 50씩 늘어요
+  while (xp >= need) { xp -= need; lv++; need += 50; }
+  const title = TITLES.filter(([from]) => lv >= from).pop()[1];
+  $("pLv").textContent = lv;
+  $("pTitle").textContent = title;
+  $("pXp").textContent = xp + " / " + need + " XP";
+  $("pXpFill").style.width = "0";
+  requestAnimationFrame(() => { $("pXpFill").style.width = (xp / need * 100) + "%"; });
+}
+
+function showLobby() {
+  renderPlayer();
+  stopDefense();
+  stopChain();
+  showScreen("lobby");
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+  $("pieceList").hidden = true;
+  $("langPanel").hidden = (tab === "mine");
+  $("minePanel").hidden = (tab !== "mine");
+
+  if (tab === "mine") {
+    $("mineMsg").textContent = "";
+    renderMine();
+  } else {
+    lang = tab;
+    const sb = loadBest("typing-best-" + lang + "-short");
+    $("shortInfo").textContent = "짧은 문장을 섞어서 연습해요" + (sb ? " · 최고 " + sb + "타" : "");
+    const gb = loadBest("typing-defense-" + lang);
+    $("gameInfo").textContent = "몰려오는 몬스터를 단어로 막아요" + (gb ? " · 최고 " + gb + "점" : "");
+    $("btnChain").hidden = (lang !== "ko");            // 끝말잇기는 한글만
+    const cb = loadBest("typing-chain-best");
+    $("chainInfo").textContent = "컴퓨터와 시간 안에 끝말잇기" + (cb ? " · 최고 " + cb + "점" : "");
+  }
+}
+
+function showPieceList() {
+  const list = $("pieceList");
+  list.innerHTML = "";
+  LONG[lang].forEach((piece, i) => {
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    const best = loadBest("typing-best-" + lang + "-long-" + i);
+    btn.innerHTML = "<strong></strong><small></small>";
+    btn.querySelector("strong").textContent = piece.title;
+    btn.querySelector("small").textContent = piece.lines.length + "줄" + (best ? " · 최고 " + best + "타" : "");
+    btn.addEventListener("click", () => startGame("long", i));
+    list.appendChild(btn);
+  });
+  list.hidden = !list.hidden;
+}
+
+// ======================= 연습 =======================
+function startGame(newKind, newPiece) {
+  kind = newKind;
+  pieceIndex = newPiece || 0;
+  if (kind === "short") {
+    lines = shuffle(SHORT[lang]);
+    $("pieceTitle").textContent = "짧은 글";
+    $("unit").textContent = "문장";
+  } else if (kind === "mine") {
+    lines = shuffle(loadMine()).slice(0, ROUND_SIZE);
+    $("pieceTitle").textContent = "내 문장";
+    $("unit").textContent = "문장";
+  } else {
+    lines = LONG[lang][pieceIndex].lines;
+    $("pieceTitle").textContent = LONG[lang][pieceIndex].title;
+    $("unit").textContent = "줄";
+  }
+  showScreen("play");
+  reset();
+}
+
+function reset() {
+  index = 0; results = []; startTime = null; composing = false; lastCorrect = 0;
+  ghostWins = 0; ghostLosses = 0; sessionMs = 0;
+  prepareLine();
+  input.value = ""; msg.textContent = "";
+  $("summary").hidden = true;
+  $("practice").hidden = false;
+  input.hidden = false;
+  $("playButtons").hidden = false;
+  render();
+  input.focus();
+}
+
+function render() {
+  const target = Array.from(lines[index]);
+  const typed = Array.from(input.value);
+  const settled = composing ? typed.length - 1 : typed.length;
+  const nowPos = composing ? typed.length - 1 : typed.length;
+
+  // 맞게 친 글자가 늘었으면 "틱" 소리
+  let correctNow = 0;
+  for (let i = 0; i < settled; i++) if (typed[i] === target[i]) correctNow++;
+  if (correctNow > lastCorrect) SFX.tick();
+  lastCorrect = correctNow;
+
+  // 고스트용 기록: 칸마다 처음 도착한 시간 (지우면 기록도 같이 지워요)
+  if (startTime) {
+    const elapsed = Date.now() - startTime;
+    if (settled < marks.length) marks.length = Math.max(settled, 0);
+    while (marks.length < settled) marks.push(elapsed);
+  }
+
+  sheet.innerHTML = "";
+  target.forEach((ch, i) => {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    let shown = ch;
+    if (i < settled) {
+      if (typed[i] === ch) {
+        cell.classList.add("ok");
+      } else {
+        cell.classList.add("bad");
+        shown = typed[i] === " " ? "_" : typed[i];
+      }
+    } else if (composing && i === typed.length - 1) {
+      cell.classList.add("composing");
+      shown = typed[i];
+    }
+    if (i === nowPos) cell.classList.add("now");
+    cell.textContent = shown === " " ? "\u00A0" : shown;
+    sheet.appendChild(cell);
+  });
+  cells = Array.from(sheet.children);
+  updateGhost();
+  $("nextLine").textContent = (kind === "long" && index + 1 < lines.length) ? "다음 줄: " + lines[index + 1] : "";
+  $("progress").textContent = (index + 1) + "/" + lines.length;
+  updateStats();
+}
+
+function measure() {
+  const target = Array.from(lines[index]);
+  const typed = Array.from(input.value);
+  const settled = composing ? typed.length - 1 : typed.length;
+  let correctText = "", correct = 0;
+  for (let i = 0; i < settled; i++) {
+    if (typed[i] === target[i]) { correct++; correctText += typed[i]; }
+  }
+  const acc = settled > 0 ? Math.round(correct / settled * 100) : 100;
+  let cpm = 0;
+  if (startTime) {
+    const minutes = (Date.now() - startTime) / 60000;
+    if (minutes > 0.02) cpm = Math.round(strokeCount(correctText) / minutes);
+  }
+  return { cpm, acc, typedLen: typed.length, targetLen: target.length };
+}
+
+function updateStats() {
+  if ($("play").hidden || !$("summary").hidden) return;
+  const m = measure();
+  $("cpm").textContent = m.cpm;
+  $("acc").textContent = m.acc;
+}
+
+const MAX_REAL_CPM = 1200;   // ★ 이보다 빠르면 복붙으로 보고 기록 안 함
+
+function finishLine() {
+  composing = false;
+  const m = measure();
+  if (m.typedLen === 0) { msg.textContent = "따라 친 다음 눌러 주세요."; return; }
+  if (m.typedLen < m.targetLen) { msg.textContent = "아직 칠 글자가 남았어요."; return; }
+  // 사람이 칠 수 없을 만큼 빠르면 기록하지 않고 다시 치게 해요
+  if (m.cpm > MAX_REAL_CPM) {
+    msg.textContent = "⚠️ " + m.cpm + "타는 사람이 칠 수 없는 속도예요. 이 줄은 다시 쳐 주세요!";
+    input.value = ""; startTime = null; marks = []; lastCorrect = 0;
+    render();
+    return;
+  }
+  results.push({ cpm: m.cpm, acc: m.acc });
+  lastCorrect = 0;
+
+  // ----- 틀린 글자 기록 (통계의 "자주 틀리는 글자"용) -----
+  const tArr = Array.from(lines[index]), yArr = Array.from(input.value);
+  const miss = loadData("typing-miss", {});
+  tArr.forEach((ch, i) => {
+    if (yArr[i] !== undefined && yArr[i] !== ch) {
+      const k = ch === " " ? "␣" : ch;
+      miss[k] = (miss[k] || 0) + 1;
+    }
+  });
+  saveData("typing-miss", miss);
+
+  // ----- 고스트 대결 결과 -----
+  const total = Date.now() - startTime;
+  sessionMs += total;
+  let ghostMsg = "";
+  let won = false;
+  if (ghost) {
+    if (total < ghost.total) {
+      won = true; ghostWins++;
+      ghostMsg = " · 👻 과거의 나를 이겼어요! " + sec(ghost.total) + "초 → " + sec(total) + "초";
+    } else {
+      ghostLosses++;
+      ghostMsg = " · 👻 아깝다! " + sec(total - ghost.total) + "초 차이";
+    }
+  }
+  // 더 빠르고 정확하면 새 고스트로 저장
+  if (m.acc >= GHOST_MIN_ACC && (!ghost || total < ghost.total)) {
+    const rec = marks.slice(0, m.targetLen);
+    while (rec.length < m.targetLen) rec.push(total);
+    saveGhost(lines[index], { total, marks: rec, at: Date.now() });
+    if (!ghost && ghostOn) ghostMsg = " · 👻 이 기록이 고스트가 됐어요";
+  }
+  if (ghost) {
+    const gs = loadData("typing-ghost-stats", { win: 0, lose: 0 });
+    if (won) gs.win++; else gs.lose++;
+    saveData("typing-ghost-stats", gs);
+  }
+  if (won) SFX.win(); else SFX.line();
+
+  msg.textContent = "방금 줄: " + m.cpm + "타, 정확도 " + m.acc + "%" + ghostMsg;
+  index++;
+  if (index >= lines.length) { showSummary(); return; }
+  input.value = "";
+  startTime = null;
+  prepareLine();
+  render();
+  input.focus();
+}
+
+function showSummary() {
+  const avgCpm = Math.round(results.reduce((a, r) => a + r.cpm, 0) / results.length);
+  const avgAcc = Math.round(results.reduce((a, r) => a + r.acc, 0) / results.length);
+  const key = bestKey();
+  const best = loadBest(key);
+  let bestText = "최고 기록: " + Math.max(best, avgCpm) + "타";
+  if (avgCpm > best) { bestText += " (새 기록!)"; saveBest(key, avgCpm); }
+  $("sumCpm").textContent = "평균 타수: " + avgCpm + "타";
+  $("sumAcc").textContent = "평균 정확도: " + avgAcc + "%";
+  $("sumBest").textContent = bestText;
+  const recordTime = Date.now();
+  pushData("typing-history", {
+    t: recordTime, kind, lang: kind === "mine" ? "mine" : lang,
+    title: $("pieceTitle").textContent, cpm: avgCpm, acc: avgAcc, lines: results.length, ms: sessionMs
+  });
+  $("sumGhost").textContent = (ghostWins + ghostLosses) > 0
+    ? "👻 고스트 대결: " + ghostWins + "승 " + ghostLosses + "패" : "";
+  $("ghostInfo").textContent = "";
+  $("summary").hidden = false;
+  $("practice").hidden = true;
+  input.hidden = true;
+  $("playButtons").hidden = true;
+}
+
+// ======================= 게임: 타자 디펜스 =======================
+const MAX_HP = 5;          // ★ 성의 하트 개수
+const LANES = 4;           // ★ 몬스터가 다니는 길 개수
+const MAX_ENEMIES = 6;     // ★ 화면에 동시에 나오는 최대 몬스터 수
+const KILLS_PER_LEVEL = 8; // ★ 몇 마리 잡으면 레벨 업
+const CASTLE_X = 0.13;     // 성의 오른쪽 끝 위치 (화면 가로의 13%)
+const MONSTERS = ["👾", "👻", "🐛", "🦇", "🐙", "🦂", "🐌", "🦖"];
+
+// ★ 1, 2레벨만 따로 조금 어렵게 (3레벨부터는 아래 계산식 그대로)
+const EARLY_LEVELS = {
+  1: { speed: 0.074, delay: 2.2 },
+  2: { speed: 0.078, delay: 2.15 }
+};
+
+// ★ 특수 몬스터: 잡으면 좋은 일이 생기고, 성에 닿아도 하트가 안 줄어요
+const SPECIAL_CHANCE = 0.12;   // 12% 확률로 등장
+const SPECIALS = [
+  { type: "heal", icon: "💖", text: "하트 회복!" },
+  { type: "ice",  icon: "❄️", text: "얼음! 4초 동안 느려져요" },
+  { type: "bomb", icon: "💣", text: "펑!" },
+  { type: "gold", icon: "⭐", text: "황금! 점수 3배" }
+];
+const FREEZE_TIME = 4;         // 얼음 지속 시간(초)
+const FREEZE_SLOW = 0.4;       // 얼음일 때 속도 (0.4 = 40%)
+
+const field = $("field"), gameInput = $("gameInput");
+let g = null;   // 게임 상태를 담는 상자 (파이썬의 딕셔너리 같은 것)
+
+function openDefense() {
+  showScreen("game");
+  clearField();
+  g = null;
+  $("hp").textContent = "♥".repeat(MAX_HP);
+  $("gScore").textContent = 0;
+  $("gLevel").textContent = 1;
+  $("gCombo").textContent = "";
+  showOverlay("타자 디펜스",
+    "단어를 치고 띄어쓰기나 엔터로 공격! 💖회복 ❄️얼음 💣폭탄 ⭐황금 몬스터를 잡으면 좋은 일이 생겨요.",
+    "시작하기", startDefense, null);
+}
+
+function clearField() {
+  field.querySelectorAll(".enemy, .shot").forEach((el) => el.remove());
+}
+
+// 가운데 안내창 (시작, 일시정지, 게임 오버에 같이 써요)
+function showOverlay(title, text, mainLabel, mainAction, showSub) {
+  $("ovTitle").textContent = title;
+  $("ovText").textContent = text;
+  $("btnOvMain").textContent = mainLabel;
+  $("btnOvMain").onclick = mainAction;
+  $("btnOvSub").hidden = !showSub;
+  $("overlay").hidden = false;
+}
+
+function startDefense() {
+  clearField();
+  g = {
+    enemies: [], score: 0, hp: MAX_HP, level: 1, kills: 0, combo: 0,
+    spawnTimer: 0.3, last: performance.now(), running: true, lastLane: -1, freeze: 0
+  };
+  field.classList.remove("frozen");
+  $("overlay").hidden = true;
+  gameInput.value = "";
+  updateHud();
+  gameInput.focus();
+  requestAnimationFrame(loop);
+}
+
+function stopDefense() {
+  if (g) g.running = false;
+}
+
+function updateHud() {
+  $("hp").textContent = "♥".repeat(g.hp) + "♡".repeat(MAX_HP - g.hp);
+  $("gScore").textContent = g.score;
+  $("gLevel").textContent = g.level;
+  $("gCombo").textContent = g.combo >= 2 ? g.combo + " 콤보" : "";
+}
+
+// 레벨이 오를수록 빨라지고 자주 나와요
+function enemySpeed() {   // 1초에 화면의 몇 %를 가는지
+  if (EARLY_LEVELS[g.level]) return EARLY_LEVELS[g.level].speed;
+  return 0.065 * Math.pow(1.12, g.level - 1);
+}
+function spawnDelay() {   // 몇 초마다 나오는지
+  if (EARLY_LEVELS[g.level]) return EARLY_LEVELS[g.level].delay;
+  return Math.max(0.9, 2.6 * Math.pow(0.9, g.level - 1));
+}
+
+function pickWord() {
+  const tiers = WORDS[lang];
+  const maxTier = Math.min(tiers.length - 1, Math.floor((g.level - 1) / 2));
+  const tier = Math.random() < 0.6 ? maxTier : Math.floor(Math.random() * (maxTier + 1));
+  const onScreen = g.enemies.map((e) => e.word);
+  const choices = tiers[tier].filter((w) => !onScreen.includes(w));   // 화면에 있는 단어는 빼기
+  const pool = choices.length ? choices : tiers[tier];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function spawn() {
+  let lane;
+  do { lane = Math.floor(Math.random() * LANES); } while (lane === g.lastLane);
+  g.lastLane = lane;
+  const el = document.createElement("div");
+  el.className = "enemy";
+  el.innerHTML = '<span class="mon"></span><span class="word"></span>';
+  const word = pickWord();
+  // 특수 몬스터 뽑기 (하트가 꽉 차 있으면 회복 몬스터는 안 나와요)
+  let special = null;
+  if (Math.random() < SPECIAL_CHANCE) {
+    const pool = SPECIALS.filter((sp) => sp.type !== "heal" || g.hp < MAX_HP);
+    special = pool[Math.floor(Math.random() * pool.length)];
+    el.classList.add("special");
+  }
+  el.querySelector(".mon").textContent = special ? special.icon : MONSTERS[Math.floor(Math.random() * MONSTERS.length)];
+  el.querySelector(".word").textContent = word;
+  el.style.top = (6 + (lane + 0.5) / LANES * 80) + "%";   // 땅(아래쪽)에 안 겹치게 6%~86% 사이
+  el.style.left = "100%";
+  field.appendChild(el);
+  g.enemies.push({ word, lane, el, special, x: 1, speed: enemySpeed() * (0.85 + Math.random() * 0.3) });
+}
+
+// 매 프레임마다 실행되는 게임의 심장
+function loop(now) {
+  if (!g || !g.running) return;
+  const dt = Math.min((now - g.last) / 1000, 0.1);   // 지난 프레임에서 흐른 시간(초)
+  g.last = now;
+
+  g.spawnTimer -= dt;
+  if (g.spawnTimer <= 0 && g.enemies.length < MAX_ENEMIES) {
+    spawn();
+    g.spawnTimer = spawnDelay();
+  }
+
+  // 얼음 효과 시간 줄이기
+  if (g.freeze > 0) {
+    g.freeze -= dt;
+    if (g.freeze <= 0) field.classList.remove("frozen");
+  }
+  const slow = g.freeze > 0 ? FREEZE_SLOW : 1;
+
+  // 몬스터 움직이기 (반복문 안에서 지우니까 뒤에서부터 돌아요)
+  for (let i = g.enemies.length - 1; i >= 0; i--) {
+    const e = g.enemies[i];
+    e.x -= e.speed * slow * dt;
+    if (e.x <= CASTLE_X) {
+      e.el.remove();
+      g.enemies.splice(i, 1);
+      if (!e.special) {            // 특수 몬스터는 그냥 지나가요
+        g.hp--;
+        g.combo = 0;
+        flash("castle", "hit");
+        SFX.hurt();
+        updateHud();
+      }
+    } else {
+      e.el.style.left = (e.x * 100) + "%";
+    }
+  }
+  highlightTargets();
+
+  if (g.hp <= 0) { gameOver(); return; }
+  requestAnimationFrame(loop);
+}
+
+// 지금 치고 있는 글자로 시작하는 몬스터를 노랗게 표시
+function highlightTargets() {
+  const typed = gameInput.value.trim();
+  g.enemies.forEach((e) => e.el.classList.toggle("target", typed.length > 0 && e.word.startsWith(typed)));
+}
+
+function flash(id, cls) {
+  const el = $(id);
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), 180);
+}
+
+function showToast(text) {
+  const t = $("toast");
+  t.textContent = text;
+  t.hidden = false;
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => { t.hidden = true; }, 1000);
+}
+
+// 단어를 입력하고 공격!
+function fire(text) {
+  if (!g || !g.running) return;
+  const word = text.trim();
+  if (!word) return;
+  const hits = g.enemies.filter((e) => e.word === word);
+  if (hits.length === 0) {                       // 틀림
+    g.combo = 0;
+    updateHud();
+    gameInput.classList.remove("shake");
+    void gameInput.offsetWidth;                  // 애니메이션 다시 틀기 위한 요령
+    gameInput.classList.add("shake");
+    return;
+  }
+  // 같은 단어가 여러 마리면 성에 제일 가까운 놈부터
+  const target = hits.reduce((a, b) => (a.x < b.x ? a : b));
+  g.combo++;
+  const oldLevel = g.level;
+  let points = killEnemy(target, true);
+
+  if (target.special) {
+    const sp = target.special;
+    if (sp.type === "heal") {
+      g.hp = Math.min(MAX_HP, g.hp + 1);
+    } else if (sp.type === "ice") {
+      g.freeze = FREEZE_TIME;
+      field.classList.add("frozen");
+    } else if (sp.type === "bomb") {
+      const others = g.enemies.slice();          // 화면의 나머지 몬스터 전부
+      others.forEach((e) => { points += killEnemy(e, false); });
+      showToast("펑! " + (others.length + 1) + "마리 한 번에");
+    } else if (sp.type === "gold") {
+      points *= 3;
+    }
+    if (sp.type !== "bomb") showToast(sp.text);
+    SFX.special();
+  } else {
+    SFX.kill();
+  }
+
+  g.score += points;
+  g.level = 1 + Math.floor(g.kills / KILLS_PER_LEVEL);   // 잡은 수로 레벨 계산
+  if (g.level > oldLevel) {
+    showToast("레벨 업! Lv " + g.level);
+    setTimeout(SFX.levelUp, 150);
+  }
+  updateHud();
+}
+
+// 몬스터 한 마리 처치하고 점수를 돌려줘요 (withShot이 true면 레이저 그리기)
+function killEnemy(target, withShot) {
+  g.enemies.splice(g.enemies.indexOf(target), 1);
+  if (withShot) {
+    const shot = document.createElement("div");
+    shot.className = "shot";
+    shot.style.left = (CASTLE_X * 100) + "%";
+    shot.style.top = target.el.style.top;
+    shot.style.width = ((target.x - CASTLE_X) * 100) + "%";
+    field.appendChild(shot);
+    setTimeout(() => shot.remove(), 200);
+    flash("castle", "fire");
+  }
+  target.el.classList.add("dead");
+  setTimeout(() => target.el.remove(), 300);
+  g.kills++;
+  const bonus = 1 + Math.min(g.combo, 10) * 0.1;   // 콤보가 쌓이면 점수가 최대 2배
+  return Math.round(strokeCount(target.word) * 10 * bonus);
+}
+
+function gameOver() {
+  g.running = false;
+  const recordTime = Date.now();
+  pushData("typing-games", { t: recordTime, lang, score: g.score, level: g.level, kills: g.kills });
+  const key = "typing-defense-" + lang;
+  const best = loadBest(key);
+  let text = g.level + "레벨까지 " + g.kills + "마리를 막았어요. 점수 " + g.score + "점";
+  if (g.score > best) { text += " · 새 기록!"; saveBest(key, g.score); }
+  else text += " · 최고 " + best + "점";
+  showOverlay("게임 오버", text, "다시 하기", startDefense, true);
+}
+
+function pauseDefense() {
+  if (!g || !g.running) return;
+  g.running = false;
+  field.classList.toggle("frozen", g.freeze > 0);
+  showOverlay("잠깐 멈춤", "준비되면 계속하기를 눌러요.", "계속하기", resumeDefense, true);
+}
+function resumeDefense() {
+  $("overlay").hidden = true;
+  g.running = true;
+  g.last = performance.now();
+  gameInput.focus();
+  requestAnimationFrame(loop);
+}
+
+// ======================= 게임: 끝말잇기 배틀 =======================
+// ★ 컴퓨터가 아는 단어 (띄어쓰기로 구분). 여기에 단어를 더 넣으면 컴퓨터가 더 똑똑해져요!
+const CHAIN_WORDS = `
+가방 가수 가위 가을 가족 가게 가지 가구 가격 가루 가면 가슴 가시 가요 각도 간식 간판 간호사 감자 감기 감동 감귤 강물 강아지 개구리 개미 개나리
+거미 거울 거리 거북이 거인 건물 건강 겨울 결혼 경찰 경기 계단 계란 계절 고구마 고기 고래 고양이 고추 고향 고무 고민 공기 공원 공부 공주 공룡 공책
+과자 과일 과학 구름 구두 구슬 구멍 국수 국어 군인 궁전 귀신 귀걸이 그림 그네 그릇 그늘 극장 근육 글자 금요일 금메달 기차 기린 기름 기억 기타 기자 기계 기적 기분
+김치 김밥 까치 꼬리 꽃잎 꿀벌 꿈속 끈기
+나무 나비 나라 나이 나침반 낙타 낙엽 낚시 날개 날씨 남자 남쪽 낮잠 냄비 냉장고 너구리 넥타이 노래 노을 노트 녹차 놀이터 농구 농부 뇌물 누나 누룽지 눈물 눈사람 뉴스 느낌 느티나무 늑대
+다리 다람쥐 다이아몬드 단추 달걀 달력 달팽이 담요 당근 대추 대문 대나무 대통령 도시 도서관 도토리 독수리 동물 동생 동전 돼지 두부 두더지 드라마 들판 등산 등대 딸기 떡국 떡볶이
+라면 라디오 레몬 로봇 리본
+마늘 마당 마술 마을 마음 막대기 만두 만화 말벌 망치 매미 머리 먼지 메뚜기 메아리 모래 모자 모기 목도리 목소리 목요일 무지개 무릎 문어 문제 물감 물고기 물병 미소 미술 미역 미로 민들레 밀가루
+바다 바람 바나나 바늘 바지 바위 박수 박물관 반지 반찬 발가락 방석 방학 배추 배꼽 버섯 버스 번개 벌레 벽돌 별자리 병아리 보리 보물 복숭아 볼펜 부엌 부채 부모님 북극 분수 불꽃 비누 비행기 비밀 비둘기 빗자루 빨래
+사과 사자 사진 사탕 사랑 사람 사다리 산책 삼촌 상자 상어 새우 새벽 색깔 생선 생일 서랍 선물 선생님 설탕 성냥 세탁기 소금 소나기 소풍 소나무 손목 송편 수박 수영 수건 수레 수학 숙제 숟가락 스키 스케이트 시계 시장 시소 식탁 신발 신호등 실내화 썰매 씨앗
+아기 아빠 아이스크림 안경 야구 약국 양말 양파 어깨 어른 얼음 엄마 여름 여우 여행 역사 연필 연못 열쇠 영화 오리 오이 오징어 옥수수 온도 올빼미 요리 요정 우산 우유 우주 운동 원숭이 유리 유령 음악 의자 이름 이불 이야기 이마 인형 일기 입술
+자동차 자전거 자석 잠옷 장갑 장난감 저녁 전화 접시 젓가락 정원 조개 종이 주먹 주사위 줄넘기 지구 지도 지우개 지하철 지갑 진주 짜장면
+차례 참새 창문 책상 천둥 청소 초록 초콜릿 축구 치약 치즈 친구 침대
+카메라 칼국수 커피 컴퓨터 코끼리 코알라 콩나물 크레파스 크리스마스 키위
+타조 탁구 태양 태풍 택시 텔레비전 토끼 토마토 튤립 트럭 트럼펫 티셔츠
+파도 파리 파랑새 팔찌 팽이 편지 포도 포크 표범 풍선 피아노 필통
+하늘 하마 학교 한복 할머니 할아버지 해바라기 햄버거 허리 호랑이 호박 호수 화분 화장실 황소 휴지 희망 흰둥이
+가래떡 가마솥 가습기 가오리 간장 갈비 갈매기 감나무 감옥 갑옷 강당 개울 거품 거짓말 걱정 게임 게시판 겨자 경주 계산기 고등어 고드름 고릴라 고무줄 고사리 곰팡이 공항 공장 과녁 광장 괴물 교실 교과서 구급차 국자 국기 굴뚝 그림자 금붕어 기념일 기침 기와 깃발 까마귀 깍두기 꼬마 꽃병 꽃게 꾀꼬리
+나그네 나들이 나팔 난로 날짜 내일 내복 냇물 넝쿨 노루 노인 논밭 농장 누에 눈썹 느림보
+다락방 다리미 단풍 달리기 닭장 담장 대장 대포 덩굴 도깨비 도넛 도로 도마 도자기 독서 돌고래 돌멩이 동굴 동화 두루미 두꺼비 둥지 뒷산 들꽃 딱지 딱따구리 땅콩 떡갈나무 뚜껑
+마녀 마라톤 마스크 마차 만세 만년필 망아지 매듭 메달 멸치 명절 모니터 목장 목걸이 몸무게 무대 무궁화 문방구 물개 물방울 미끄럼틀 미용실 미술관
+바구니 바이올린 박쥐 반딧불 반창고 밥상 방귀 방울 배구 배낭 백조 버터 벌집 베개 변기 병원 보따리 보름달 보자기 복도 볶음밥 봉투 부리 부엉이 분필 불고기 붓글씨 비빔밥 비옷 빗물 빨대 뻐꾸기
+사거리 사냥꾼 사마귀 사슴 사투리 산딸기 산호 삼각형 상추 새싹 생쥐 서커스 석류 선인장 선풍기 설거지 성벽 세수 소방관 소시지 소쿠리 손수건 솜사탕 송아지 수달 수첩 순대 스웨터 스티커 시냇물 시금치 식물 신문 실험 심장 쓰레기 씨름
+아궁이 아침 악어 앵무새 야자수 약속 양복 양초 어항 얼룩말 에어컨 엘리베이터 연극 연어 열차 엽서 영웅 오솔길 오토바이 옥상 올챙이 옷걸이 외계인 요구르트 욕조 우체국 운동화 원피스 월요일 유치원 은행 음료수 의사 이발소 이빨 이웃 인사 일요일 잉어
+자두 자물쇠 자판기 작가 잔디 잠자리 장미 장화 재채기 전구 전등 전철 점심 정거장 제비 조각 조끼 족제비 주머니 주전자 준비물 줄기 지네 지렁이 지붕 지팡이 직업 진흙 질문 집게 짐승 찐빵
+찰흙 참외 창고 채소 책가방 천사 철새 청바지 체육 초가집 초승달 촛불 추석 축제 출구 치과 치마 칠판 침팬지
+캠핑 캥거루 커튼 컵라면 코뿔소 콘서트 콧물 쿠키 키보드
+타이어 탬버린 터널 텃밭 테니스 토요일 통조림 튜브
+파인애플 판다 팔꿈치 팥죽 펭귄 편의점 평화 폭포 표지판 풀밭 풀잎 피리 피자
+하모니카 하품 학생 한글 해님 해적 해파리 햇빛 향기 허수아비 헬리콥터 현관 형제 호두 호루라기 혹등고래 홍당무 화요일 화산 화가 화살 활주로 횡단보도 휘파람
+구치소 경찰서 소방서 법원 시청 구청 우체통 편의점 백화점 목욕탕 미용사 요리사 운전사 비서 변호사 판사 검사 교수 교장 학원 학부모 대학교 초등학교 중학교 고등학교
+가로등 가위바위보 감자튀김 강낭콩 거북선 건전지 검은콩 게시물 결승전 계곡 고속도로 곡식 공룡알 공작새 과수원 관객 교통 구조대 국물 국회 군대 굴착기 귤나무 그림책 금고 기관차 기숙사 기차역 기후 깨소금
+나룻배 나뭇잎 나침판 낙하산 날다람쥐 냉면 노란색 녹두 놀이기구 누룩 눈보라 뉴질랜드
+다과 다시마 단감 달맞이 당나귀 대관람차 대피소 도라지 도둑 도시락 도착 독감 돌다리 동네 동아리 된장 두루마리 등불 딸꾹질 땀방울
+마라탕 마법사 마우스 맛집 매실 머리띠 모닥불 모래성 모험 목수 무용수 문구점 물놀이 물레방아 미꾸라지 미나리
+바둑 바비큐 발레 발자국 밤송이 방앗간 배달 배추김치 버드나무 번데기 벚꽃 보건소 보라색 보석 복권 볼링 부침개 불가사리 비상구 비타민 빙수 빨간색
+사각형 사물함 산타 삼겹살 상추쌈 생강 서점 선박 성탄절 세제 소원 속담 손가락 수도 수족관 수영장 숨바꼭질 스님 시골 신호 심부름 싸리비
+아르바이트 안내소 알약 앞치마 액자 야영 약수터 어린이 언덕 엉덩이 여권 연날리기 열매 영수증 예방주사 오두막 오르골 오븐 온천 우주선 원두막 유람선 은하수 이사 이삿짐 인절미 입장권
+자장가 잠수함 장독대 재활용 저금통 전기 전봇대 정류장 제과점 조랑말 주차장 주유소 죽순 쥐불놀이 지진 진돗개 짐수레
+차고 참기름 창틀 책장 철봉 첫눈 청개구리 체리 초인종 축구공 충전기 치킨 칫솔
+카드 카레 칼라 캐릭터 커피숍 컵케이크 케이크 코스모스 콩국수 쿠션 크레인
+탈춤 탕수육 태극기 태권도 털실 테이프 토끼풀 통나무 튀김 트리
+팝콘 팥빙수 페인트 포도주 폭죽 표정 풍차 프라이팬 핀셋
+한옥 할로윈 해돋이 해수욕장 핸드폰 햇살 헬멧 호떡 호빵 홍수 화장품 화재 환자 회전목마 휴게소 흑설탕
+`.trim().split(/\s+/);
+const CHAIN_START_TIME = 15;   // ★ 처음 제한 시간(초)
+const CHAIN_MIN_TIME = 6;      // ★ 가장 짧은 제한 시간(초)
+const CHAIN_TIME_STEP = 0.5;   // ★ 한 번 주고받을 때마다 줄어드는 시간(초)
+const SURRENDER_BONUS = 300;   // ★ 컴퓨터가 항복하면 받는 보너스
+
+// ----- 한글 글자 쪼개기 / 합치기 -----
+// "강" = 첫소리 ㄱ(0) + 가운데 ㅏ(0) + 받침 ㅇ(21)
+function splitSyl(ch) {
+  const c = ch.charCodeAt(0) - 0xAC00;
+  if (c < 0 || c > 11171) return null;
+  return { cho: Math.floor(c / 588), jung: Math.floor((c % 588) / 28), jong: c % 28 };
+}
+function joinSyl(cho, jung, jong) {
+  return String.fromCharCode(0xAC00 + cho * 588 + jung * 28 + jong);
+}
+// 두음법칙: 력 → 역, 로 → 노, 녀 → 여 처럼 바꿔도 되는 글자
+const Y_VOWELS = [2, 3, 6, 7, 12, 17, 20];   // ㅑ ㅒ ㅕ ㅖ ㅛ ㅠ ㅣ
+function dueum(ch) {
+  const s = splitSyl(ch);
+  if (!s) return null;
+  if (s.cho === 5) return joinSyl(Y_VOWELS.includes(s.jung) ? 11 : 2, s.jung, s.jong);   // ㄹ → ㅇ 또는 ㄴ
+  if (s.cho === 2 && Y_VOWELS.includes(s.jung)) return joinSyl(11, s.jung, s.jong);       // ㄴ → ㅇ
+  return null;
+}
+// 이 글자 다음에 시작할 수 있는 글자들
+function startOptions(lastChar) {
+  const alt = dueum(lastChar);
+  return alt ? [lastChar, alt] : [lastChar];
+}
+
+// ----- 컴퓨터 단어장 (기본 단어 + 사용자에게 배운 단어) -----
+// 예전 버전에서 자동으로 배운 이상한 단어들은 지워요
+try { localStorage.removeItem("typing-chain-learned"); } catch (e) {}
+
+// 기본 단어에 나오는 글자 모음 ("린풉닫"의 "풉"처럼 이상한 글자를 걸러내는 데 써요)
+const BASE_SYLLABLES = new Set(CHAIN_WORDS.join(""));
+const MAX_MY_WORDS = 300;   // ★ 내 단어장 최대 개수
+
+function loadMyWords() { return loadData("typing-chain-mywords", []); }
+function chainDict() {
+  const all = new Set(CHAIN_WORDS.concat(loadMyWords()));
+  const byFirst = {};                        // 첫 글자별로 모아 두기
+  all.forEach((w) => { (byFirst[w[0]] = byFirst[w[0]] || []).push(w); });
+  return { all, byFirst };
+}
+
+let c = null;   // 끝말잇기 상태
+const chainLog = $("chainLog"), chainInput = $("chainInput");
+
+function openChain() {
+  $("wordBook").hidden = true;
+  showScreen("chain");
+  stopChain();
+  chainLog.innerHTML = "";
+  $("cScore").textContent = 0;
+  $("cRound").textContent = 0;
+  $("cWins").textContent = "";
+  $("cNext").textContent = "?";
+  $("cHint").textContent = "이 글자로 시작하는 단어를 쳐요";
+  $("cMsg").textContent = "";
+  $("cTimer").style.width = "100%";
+  $("cOverTitle").textContent = "끝말잇기 배틀";
+  $("cOverText").textContent = "컴퓨터가 낸 단어의 끝 글자로 시작하는 단어를 치고 띄어쓰기나 엔터! " +
+    "두음법칙(력→역, 로→노)도 돼요. 시간은 점점 줄어들고, 컴퓨터가 이을 단어가 없으면 항복해요. " +
+    "컴퓨터 사전에 없는 단어는 점수가 절반이고, 그 단어로는 컴퓨터를 항복시킬 수 없어요. " +
+    "자주 쓰는 단어는 📖 내 단어장에 넣어 두면 점수도 다 받고 컴퓨터도 써요.";
+  $("btnChainStart").textContent = "시작하기";
+  $("cOver").hidden = false;
+  chainInput.hidden = true;
+}
+
+function startChain() {
+  $("wordBook").hidden = true;
+  c = { lastUnknown: false, dict: chainDict(), used: new Set(), score: 0, rounds: 0, wins: 0,
+        limit: CHAIN_START_TIME, left: CHAIN_START_TIME, turn: "cpu", next: null, last: performance.now(), running: true };
+  chainLog.innerHTML = "";
+  $("cOver").hidden = true;
+  chainInput.hidden = false;
+  chainInput.value = "";
+  $("cMsg").textContent = "";
+  updateChainHud();
+  chainInput.focus();
+  cpuTurn(true);
+  requestAnimationFrame(chainLoop);
+}
+
+function stopChain() { if (c) c.running = false; }
+
+function updateChainHud() {
+  $("cScore").textContent = c.score;
+  $("cRound").textContent = c.rounds;
+  $("cWins").textContent = c.wins ? "🏳️ 항복 " + c.wins + "번" : "";
+}
+
+// 말풍선 추가 (마지막 글자는 빨갛게)
+function addBubble(who, word, note) {
+  const div = document.createElement("div");
+  div.className = "bubble " + who;
+  if (who === "sys") {
+    div.textContent = word;
+  } else {
+    const head = document.createTextNode(word.slice(0, -1));
+    const tail = document.createElement("b");
+    tail.textContent = word.slice(-1);
+    div.append(head, tail);
+    if (note) { const sm = document.createElement("small"); sm.textContent = note; div.append(sm); }
+  }
+  chainLog.appendChild(div);
+  chainLog.scrollTop = chainLog.scrollHeight;
+}
+
+// 다음에 칠 글자 보여주기
+function setNext(word) {
+  const opts = startOptions(word.slice(-1));
+  c.next = opts;
+  $("cNext").textContent = opts[0];
+  $("cHint").textContent = opts.length > 1 ? "'" + opts[1] + "'(으)로 시작해도 돼요" : "이 글자로 시작하는 단어를 쳐요";
+}
+
+// 컴퓨터 차례: first가 true면 아무 단어로 시작
+function cpuTurn(first) {
+  c.turn = "cpu";
+  $("cHint").textContent = "컴퓨터가 생각 중…";
+  setTimeout(() => {
+    if (!c || !c.running) return;
+    let pool;
+    if (first) {
+      pool = Array.from(c.dict.all).filter((w) => !c.used.has(w) && (c.dict.byFirst[w.slice(-1)] || []).length > 0);
+    } else {
+      pool = [];
+      c.next.forEach((ch) => (c.dict.byFirst[ch] || []).forEach((w) => { if (!c.used.has(w)) pool.push(w); }));
+    }
+    if (pool.length === 0 && !first && c.lastUnknown) {
+      // 사전 밖 단어로는 항복시킬 수 없어요 (지어낸 단어로 이기는 것 방지)
+      addBubble("sys", "🤔 그 단어는 몰라서 이을 수가 없어요. 새 단어로 다시 시작!");
+      setTimeout(() => cpuTurn(true), 900);
+      return;
+    }
+    if (pool.length === 0) {                      // 이을 단어가 없음 → 항복
+      c.wins++;
+      c.score += SURRENDER_BONUS;
+      addBubble("sys", "🏳️ 컴퓨터가 항복했어요! +" + SURRENDER_BONUS + "점");
+      SFX.win();
+      updateChainHud();
+      setTimeout(() => cpuTurn(true), 900);      // 새 단어로 다시 시작
+      return;
+    }
+    // 10번 넘게 주고받으면 컴퓨터가 가끔 이어 가기 어려운 단어를 골라요
+    let word;
+    if (c.rounds >= 10 && Math.random() < 0.5) {
+      const hardness = (w) => startOptions(w.slice(-1)).reduce((n, ch) => n + (c.dict.byFirst[ch] || []).length, 0);
+      pool.sort((a, b) => hardness(a) - hardness(b));
+      word = pool[Math.floor(Math.random() * Math.min(3, pool.length))];
+    } else {
+      word = pool[Math.floor(Math.random() * pool.length)];
+    }
+    c.used.add(word);
+    addBubble("cpu", word);
+    setNext(word);
+    c.turn = "me";
+    c.left = c.limit;
+    c.last = performance.now();
+  }, 600 + Math.random() * 600);
+}
+
+// 내 단어 제출
+function submitChain(text) {
+  if (!c || !c.running) return;
+  const w = text.trim();
+  if (!w) return;
+  const m = $("cMsg");
+  m.classList.add("err");
+  if (c.turn !== "me") { m.textContent = "컴퓨터 차례예요. 잠깐만요!"; return; }
+  let err = null;
+  if (!/^[가-힣]{2,6}$/.test(w)) err = "한글 2~6글자 단어를 입력해요.";
+  else if (!c.next.includes(w[0])) err = "'" + c.next.join("' 또는 '") + "'(으)로 시작해야 해요.";
+  else if (c.used.has(w)) err = "이미 나온 단어예요.";
+  else if (new Set(w).size === 1 || /(.)\1\1/.test(w)) err = "같은 글자만 반복한 건 안 돼요.";
+  else if (!c.dict.all.has(w)) {
+    // 사전에 없어도 흔한 글자로만 된 단어는 받아 줘요 ("구치소"는 통과, "린듐"은 거절)
+    const odd = Array.from(w).filter((ch) => !BASE_SYLLABLES.has(ch));
+    if (odd.length) err = "'" + odd.join("', '") + "'처럼 거의 안 쓰는 글자가 있어요. 진짜 단어 맞아요?";
+  }
+  if (err) {
+    m.textContent = err;
+    chainInput.classList.remove("shake");
+    void chainInput.offsetWidth;
+    chainInput.classList.add("shake");
+    return;
+  }
+  m.textContent = "";
+  m.classList.remove("err");
+  c.used.add(w);
+  c.rounds++;
+  const known = c.dict.all.has(w);
+  c.lastUnknown = !known;                       // 사전 밖 단어였는지 기억 (항복 판정에 써요)
+  let points = strokeCount(w) * 10 + Math.floor(c.left) * 5;   // 빨리 칠수록 보너스
+  if (!known) points = Math.round(points / 2);  // 사전 밖 단어는 점수 절반
+  c.score += points;
+  let note = "+" + points + (known ? "" : " · 사전 밖");
+  addBubble("me", w, note);
+  SFX.kill();
+  c.limit = Math.max(CHAIN_MIN_TIME, c.limit - CHAIN_TIME_STEP);
+  updateChainHud();
+  setNext(w);
+  cpuTurn(false);
+}
+
+// 시간 재기
+function chainLoop(now) {
+  if (!c || !c.running) return;
+  const dt = (now - c.last) / 1000;
+  c.last = now;
+  if (c.turn === "me") {
+    c.left -= dt;
+    $("cTimer").style.width = Math.max(0, c.left / c.limit * 100) + "%";
+    $("cTimerBox").classList.toggle("warn", c.left < 3);
+    if (c.left <= 0) { chainOver(); return; }
+  }
+  requestAnimationFrame(chainLoop);
+}
+
+// ----- 내 단어장 -----
+// 이상한 단어 거르기: 문제가 있으면 이유를, 괜찮으면 null
+function checkWord(w, mine) {
+  if (!/^[가-힣]{2,6}$/.test(w)) return "한글 2~6글자 단어만 넣을 수 있어요.";
+  if (CHAIN_WORDS.includes(w)) return "컴퓨터가 이미 아는 단어예요.";
+  if (mine.includes(w)) return "이미 넣은 단어예요.";
+  if (new Set(w).size === 1 || /(.)\1\1/.test(w)) return "같은 글자만 반복한 건 안 돼요.";
+  const odd = Array.from(w).filter((ch) => !BASE_SYLLABLES.has(ch));
+  if (odd.length) return "'" + odd.join("', '") + "'처럼 거의 안 쓰는 글자가 들어 있어서 넣을 수 없어요.";
+  if (mine.length >= MAX_MY_WORDS) return "단어장이 꽉 찼어요. 몇 개 지우고 넣어 주세요.";
+  return null;
+}
+function renderWordBook() {
+  const list = loadMyWords();
+  const ol = $("wordList");
+  ol.innerHTML = "";
+  list.forEach((w, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = '<span class="num"></span><span class="text"></span><button>삭제</button>';
+    li.querySelector(".num").textContent = i + 1;
+    li.querySelector(".text").textContent = w;
+    li.querySelector("button").addEventListener("click", () => {
+      const now = loadMyWords();
+      now.splice(i, 1);
+      saveData("typing-chain-mywords", now);
+      renderWordBook();
+    });
+    ol.appendChild(li);
+  });
+}
+function addWord() {
+  const box = $("wordInput"), m = $("wordMsg");
+  const w = box.value.trim();
+  const list = loadMyWords();
+  const err = checkWord(w, list);
+  if (err) { m.textContent = err; m.classList.add("err"); return; }
+  list.push(w);
+  saveData("typing-chain-mywords", list);
+  m.textContent = "'" + w + "' 넣었어요!";
+  m.classList.remove("err");
+  box.value = "";
+  renderWordBook();
+  box.focus();
+}
+
+function chainOver() {
+  c.running = false;
+  SFX.hurt();
+  addBubble("sys", "⏰ 시간 초과!");
+  pushData("typing-chains", { t: Date.now(), score: c.score, rounds: c.rounds, wins: c.wins });
+  const best = loadBest("typing-chain-best");
+  let text = c.rounds + "단어를 이었고 컴퓨터를 " + c.wins + "번 항복시켰어요. 점수 " + c.score + "점";
+  if (c.score > best) { text += " · 새 기록!"; saveBest("typing-chain-best", c.score); }
+  else text += " · 최고 " + best + "점";
+  $("cOverTitle").textContent = "게임 끝";
+  $("cOverText").textContent = text;
+  $("btnChainStart").textContent = "다시 하기";
+  $("cOver").hidden = false;
+  chainInput.hidden = true;
+}
+
+// ======================= 통계 화면 =======================
+const avg = (arr) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const dateText = (t) => { const d = new Date(t); return (d.getMonth() + 1) + "/" + d.getDate(); };
+const LANG_NAME = { ko: "한글", en: "영어", mine: "내 문장" };
+
+function showStats() {
+  showScreen("stats");
+  renderStats();
+}
+
+function renderStats() {
+  const hist = loadData("typing-history", []);
+  const games = loadData("typing-games", []);
+  const miss = loadData("typing-miss", {});
+  const gs = loadData("typing-ghost-stats", { win: 0, lose: 0 });
+  let html = "";
+
+  const chains = loadData("typing-chains", []);
+  if (!hist.length && !games.length && !chains.length) {
+    $("statsBody").innerHTML = '<div class="card"><h3>아직 기록이 없어요</h3>' +
+      '<p class="note">연습을 끝까지 하거나 게임을 한 판 하면 여기에 통계가 쌓여요.</p></div>';
+    return;
+  }
+
+  // 1) 한눈에 보기
+  const cpms = hist.map((h) => h.cpm);
+  const minutes = Math.round(hist.reduce((a, h) => a + (h.ms || 0), 0) / 60000);
+  html += '<div class="card"><h3>한눈에 보기</h3><div class="stat-grid">' +
+    '<div><b>' + hist.length + '</b><span>연습 횟수</span></div>' +
+    '<div><b>' + minutes + '분</b><span>총 연습 시간</span></div>' +
+    '<div><b>' + (cpms.length ? Math.max(...cpms) : 0) + '</b><span>최고 타수</span></div>' +
+    '<div><b>' + avg(cpms) + '</b><span>평균 타수</span></div>' +
+    '<div><b>' + avg(hist.map((h) => h.acc)) + '%</b><span>평균 정확도</span></div>' +
+    '<div><b>' + gs.win + '승 ' + gs.lose + '패</b><span>고스트 전적</span></div>' +
+    '</div></div>';
+
+  // 2) 타수 변화 그래프 (최근 20번)
+  if (hist.length >= 2) {
+    const recent = hist.slice(-20);
+    const W = 300, H = 120, P = 22;                 // 그림 크기와 여백
+    const vals = recent.map((h) => h.cpm);
+    const max = Math.max(...vals), min = Math.min(...vals);
+    const range = Math.max(max - min, 10);
+    const xy = vals.map((v, i) => [
+      P + i * (W - P * 2) / (vals.length - 1),
+      H - P - (v - min) / range * (H - P * 2)
+    ]);
+    let svg = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="최근 타수 변화">';
+    svg += '<line class="axis" x1="' + P + '" y1="' + (H - P) + '" x2="' + (W - P) + '" y2="' + (H - P) + '"/>';
+    svg += '<line class="axis" x1="' + P + '" y1="' + P + '" x2="' + (W - P) + '" y2="' + P + '"/>';
+    svg += '<text x="2" y="' + (P + 3) + '">' + (min + range) + '</text>';
+    svg += '<text x="2" y="' + (H - P + 3) + '">' + min + '</text>';
+    svg += '<polyline class="line" points="' + xy.map((p) => p.join(",")).join(" ") + '"/>';
+    xy.forEach((p) => { svg += '<circle class="dot" cx="' + p[0] + '" cy="' + p[1] + '" r="2.8"/>'; });
+    svg += '</svg>';
+    const first = avg(vals.slice(0, Math.ceil(vals.length / 2)));
+    const last = avg(vals.slice(Math.floor(vals.length / 2)));
+    const trend = last > first ? "📈 앞쪽보다 평균 " + (last - first) + "타 늘었어요!"
+                : last < first ? "요즘 평균이 " + (first - last) + "타 줄었어요. 조금만 더 힘내요!"
+                : "꾸준히 비슷한 속도예요.";
+    html += '<div class="card"><h3>타수 변화</h3>' + svg +
+      '<p class="note">최근 ' + vals.length + '번 연습 · ' + trend + '</p></div>';
+  }
+
+  // 3) 모드별 비교
+  html += '<div class="card"><h3>모드별</h3><div class="table-wrap"><table>' +
+    '<tr><th>모드</th><th class="num">횟수</th><th class="num">평균 타수</th><th class="num">평균 정확도</th></tr>';
+  ["ko", "en", "mine"].forEach((l) => {
+    const part = hist.filter((h) => h.lang === l);
+    if (!part.length) return;
+    html += '<tr><td>' + LANG_NAME[l] + '</td><td class="num">' + part.length + '</td><td class="num">' +
+      avg(part.map((h) => h.cpm)) + '</td><td class="num">' + avg(part.map((h) => h.acc)) + '%</td></tr>';
+  });
+  html += '</table></div></div>';
+
+  // 4) 자주 틀리는 글자 TOP 5
+  const missTop = Object.entries(miss).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (missTop.length) {
+    html += '<div class="card"><h3>자주 틀리는 글자</h3><div class="chips">';
+    missTop.forEach(([ch, n]) => { html += '<span><b>' + esc(ch) + '</b><small>' + n + '번</small></span>'; });
+    html += '</div><p class="note">␣ 는 띄어쓰기예요. 이 글자들이 들어간 문장을 내 문장에 넣어서 집중 연습해 보세요.</p></div>';
+  }
+
+  // 5) 타자 디펜스
+  if (games.length) {
+    html += '<div class="card"><h3>타자 디펜스</h3><div class="stat-grid">' +
+      '<div><b>' + games.length + '</b><span>플레이 판 수</span></div>' +
+      '<div><b>' + Math.max(...games.map((x) => x.score)) + '</b><span>최고 점수</span></div>' +
+      '<div><b>Lv ' + Math.max(...games.map((x) => x.level)) + '</b><span>최고 레벨</span></div>' +
+      '<div><b>' + games.reduce((a, x) => a + x.kills, 0) + '</b><span>총 처치 수</span></div>' +
+      '<div><b>' + avg(games.map((x) => x.score)) + '</b><span>평균 점수</span></div>' +
+      '<div><b>' + dateText(games[games.length - 1].t) + '</b><span>마지막 플레이</span></div>' +
+      '</div></div>';
+  }
+
+  // 6) 끝말잇기 배틀
+  if (chains.length) {
+    html += '<div class="card"><h3>끝말잇기 배틀</h3><div class="stat-grid">' +
+      '<div><b>' + chains.length + '</b><span>플레이 판 수</span></div>' +
+      '<div><b>' + Math.max(...chains.map((x) => x.score)) + '</b><span>최고 점수</span></div>' +
+      '<div><b>' + Math.max(...chains.map((x) => x.rounds)) + '</b><span>최장 연결</span></div>' +
+      '<div><b>' + chains.reduce((a, x) => a + x.wins, 0) + '</b><span>컴퓨터 항복</span></div>' +
+      '<div><b>' + loadMyWords().length + '</b><span>내 단어장</span></div>' +
+      '<div><b>' + dateText(chains[chains.length - 1].t) + '</b><span>마지막 플레이</span></div>' +
+      '</div></div>';
+  }
+
+  $("statsBody").innerHTML = html;
+}
+
+// ======================= 이벤트 연결 =======================
+// 로비
+document.querySelectorAll(".tabs button").forEach((b) => {
+  b.addEventListener("click", () => { tab = b.dataset.tab; showLobby(); });
+});
+$("btnShort").addEventListener("click", () => startGame("short"));
+$("btnLong").addEventListener("click", showPieceList);
+$("btnGame").addEventListener("click", openDefense);
+$("btnAdd").addEventListener("click", addMine);
+$("btnMineStart").addEventListener("click", () => {
+  if (loadMine().length >= MIN_MINE) startGame("mine");
+});
+$("mineInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); setTimeout(addMine, 0); }
+});
+
+// 연습
+input.addEventListener("compositionstart", () => { composing = true; });
+input.addEventListener("compositionend", () => { composing = false; render(); });
+input.addEventListener("input", () => {
+  if (!startTime && input.value.length > 0) startTime = Date.now();
+  render();
+});
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); setTimeout(finishLine, 0); }
+});
+$("btnNext").addEventListener("click", finishLine);
+$("btnReset").addEventListener("click", () => startGame(kind, pieceIndex));
+$("btnAgain").addEventListener("click", () => startGame(kind, pieceIndex));
+$("btnBack").addEventListener("click", showLobby);
+$("btnLobby").addEventListener("click", showLobby);
+sheet.addEventListener("click", () => input.focus());
+setInterval(updateStats, 500);
+setInterval(updateGhost, 100);
+
+// 게임
+gameInput.addEventListener("input", () => {
+  // 띄어쓰기를 치면 공격 (한글은 띄어쓰기를 쳐야 마지막 글자가 완성돼요)
+  if (gameInput.value.includes(" ")) {
+    fire(gameInput.value);
+    gameInput.value = "";
+  }
+  if (g && g.running) highlightTargets();
+});
+gameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    setTimeout(() => { fire(gameInput.value); gameInput.value = ""; }, 0);
+  }
+});
+$("btnGameBack").addEventListener("click", showLobby);
+$("btnOvSub").addEventListener("click", showLobby);
+field.addEventListener("click", () => { if (g && g.running) gameInput.focus(); });
+// 다른 앱으로 넘어가면 자동으로 멈춤
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) return;
+  pauseDefense();
+  if (c && c.running) { c.running = false; chainOver(); }   // 끝말잇기는 앱을 나가면 그 판이 끝나요
+});
+
+// 소리 / 진동 켜고 끄기
+$("btnSound").addEventListener("click", () => {
+  soundOn = !soundOn;
+  try { localStorage.setItem("typing-sound", soundOn ? "on" : "off"); } catch (e) {}
+  renderSettings();
+  if (soundOn) SFX.tick();
+});
+$("btnVibe").addEventListener("click", () => {
+  vibeOn = !vibeOn;
+  try { localStorage.setItem("typing-vibe", vibeOn ? "on" : "off"); } catch (e) {}
+  renderSettings();
+  if (vibeOn) buzz(60);
+});
+
+// ======================= 키보드 안 내려가게 하기 =======================
+// 1) 버튼을 눌러도 입력창이 포커스를 잃지 않게 (포커스를 잃으면 키보드가 내려가요)
+function keepKeyboard(btn) {
+  ["pointerdown", "mousedown"].forEach((ev) => btn.addEventListener(ev, (e) => e.preventDefault()));
+}
+[$("btnNext"), $("btnReset"), $("btnAdd")].forEach(keepKeyboard);
+
+// 2) 연습·게임 중에 화면 다른 곳을 눌러서 포커스가 빠지면 바로 다시 입력창으로
+function refocusWhen(box, isActive) {
+  box.addEventListener("blur", () => {
+    setTimeout(() => {
+      if (isActive() && document.visibilityState === "visible" && document.activeElement !== box) {
+        box.focus({ preventScroll: true });
+      }
+    }, 0);
+  });
+}
+refocusWhen(input, () => !$("play").hidden && !input.hidden);
+refocusWhen(gameInput, () => !$("game").hidden && g && g.running);
+refocusWhen(chainInput, () => !$("chain").hidden && c && c.running);
+
+// 끝말잇기
+$("btnChain").addEventListener("click", openChain);
+$("btnChainStart").addEventListener("click", startChain);
+$("btnChainBack").addEventListener("click", showLobby);
+$("btnChainLobby").addEventListener("click", showLobby);
+$("btnWordBook").addEventListener("click", () => {
+  const wb = $("wordBook");
+  wb.hidden = !wb.hidden;
+  if (!wb.hidden) { $("wordMsg").textContent = ""; renderWordBook(); wb.scrollIntoView({ behavior: "smooth" }); }
+});
+$("btnWordAdd").addEventListener("click", addWord);
+keepKeyboard($("btnWordAdd"));
+$("wordInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); setTimeout(addWord, 0); }
+});
+chainInput.addEventListener("input", () => {
+  if (chainInput.value.includes(" ")) { submitChain(chainInput.value); chainInput.value = ""; }
+});
+chainInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    setTimeout(() => { submitChain(chainInput.value); chainInput.value = ""; }, 0);
+  }
+});
+
+$("btnStats").addEventListener("click", showStats);
+$("btnStatsBack").addEventListener("click", showLobby);
+$("btnStatsReset").addEventListener("click", () => {
+  if (!confirm("통계를 모두 지울까요? (최고 기록과 고스트는 남아요)")) return;
+  ["typing-history", "typing-games", "typing-miss", "typing-ghost-stats", "typing-chains"].forEach((k) => {
+    try { localStorage.removeItem(k); } catch (e) {}
+  });
+  renderStats();
+});
+
+$("btnGhost").addEventListener("click", () => {
+  ghostOn = !ghostOn;
+  try { localStorage.setItem("typing-ghost", ghostOn ? "on" : "off"); } catch (e) {}
+  renderSettings();
+});
+
+// ======================= 복사·붙여넣기 막기 =======================
+const MAX_JUMP = 3;   // ★ 한 번에 이 글자 수보다 많이 들어오면 붙여넣기로 봐요
+function blockPaste(box, warnFn) {
+  let prev = box.value;
+  const warn = () => {
+    warnFn("✋ 붙여넣기는 안 돼요. 직접 쳐 주세요!");
+    box.classList.remove("shake");
+    void box.offsetWidth;
+    box.classList.add("shake");
+  };
+  // 1) 붙여넣기·끌어다 놓기 자체를 막기
+  ["paste", "drop"].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); warn(); }));
+  box.addEventListener("beforeinput", (e) => {
+    prev = box.value;   // 바뀌기 직전 값 기억 (코드로 입력창을 비운 뒤에도 정확하게)
+    if (/^insertFrom(Paste|Drop|Yank)/.test(e.inputType)) { e.preventDefault(); warn(); }
+  }, true);
+  // 2) 키보드 클립보드 버튼처럼 몰래 들어오는 것도: 한 번에 너무 많이 늘면 되돌리기
+  box.addEventListener("input", (e) => {
+    const now = box.value;
+    if (Array.from(now).length - Array.from(prev).length > MAX_JUMP) {
+      box.value = prev;
+      e.stopImmediatePropagation();   // 다른 처리(채점 등)가 실행되지 않게
+      warn();
+      return;
+    }
+    prev = now;
+  }, true);
+  box.addEventListener("focus", () => { prev = box.value; });
+}
+blockPaste(input, (t) => { msg.textContent = t; });
+blockPaste(gameInput, (t) => showToast(t));
+blockPaste(chainInput, (t) => { $("cMsg").textContent = t; $("cMsg").classList.add("err"); });
+
+// 시작은 로비부터!
+renderSettings();
+showLobby();
+</script>
+<!-- 앱처럼 동작하게 (인터넷 없이도 켜지게) 서비스 워커 등록 -->
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
